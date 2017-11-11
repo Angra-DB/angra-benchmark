@@ -1,0 +1,4 @@
+2017-11-11 11:47:24 start Angra-DB (start)
+2017-11-11 11:47:27 start Angra-DB (end)
+2017-11-11 11:47:27 - Running load number 1 for angra of workload workloada
+2017-11-11 11:47:47 - Running run number 1 for angra of workload workloada
