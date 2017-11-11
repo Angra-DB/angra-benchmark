@@ -7,6 +7,13 @@ import subprocess
 
 ON_POSIX = 'posix' in sys.builtin_module_names
 
+
+def load_config():
+    with open('benchmark.cfg') as data_file:
+        data = json.load(data_file)
+    return data
+
+
 def time_stamp_file():
     return time_stamp().replace('-', '').replace(':', '').replace(' ', '')
 
@@ -16,6 +23,21 @@ def time_stamp():
     import time
     ts = time.time()
     return datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d %H:%M:%S')
+
+
+def log_types(type, ex, com_type, db, th, wl):
+    cfg = load_config()
+    if type == 'result':
+        to_return = cfg["ycsb_results_location"] + str(ex) + '-' + \
+            com_type + '-' + db + '-threads-' + str(th) + '-' +\
+            wl + '.log'
+    elif type == 'screen':
+        to_return = time_stamp() + ' - Running ' + com_type + ' number ' + \
+            str(ex) + ' for ' + db + 'with ' + th + ' threads of workload ' + \
+            wl
+
+    return to_return
+
 
 # couchdb
 def start_couchdb(log_file):
@@ -134,6 +156,7 @@ def kill_angra(proc, log_file):
     log_f.close()
     print time_stamp(), 'stop Angra-DB (end)'
 
+
 # mongodb
 def start_mongodb(log_file):
     print time_stamp(), 'start MongoDB (start)'
@@ -172,24 +195,12 @@ def kill_mongodb(proc, log_file):
     print time_stamp(), 'stop MongoDB (end)'
 
 
-def load_config():
-    with open('benchmark.cfg') as data_file:
-        data = json.load(data_file)
-    return data
-
-
 def exectute_tests():
     cfg = load_config()
     angra_core_location = cfg["angra_core_location"]
     rebar3_command = cfg["rebar3_command"]
     ycsb_location = cfg["ycsb_location"]
-    ycsb_results_location = cfg["ycsb_results_location"]
-    log_file = cfg["ycsb_results_location"] + time_stamp_file() + '_log.txt'
-
-    if cfg["threads"] != 0:
-        thr_com = ''
-    else:
-        thr_com = '-threads ' + str(cfg["threads"]) + ' '
+    log_file = cfg["ycsb_results_location"] + time_stamp_file() + '.log'
 
     if cfg["target"] == 0:
         targ_com = ''
@@ -206,71 +217,68 @@ def exectute_tests():
     else:
         opr_com = '-p operationcount=' + str(cfg["operationcount"]) + ' '
     for database in cfg["dbs"]:
-        for ex in range(1, cfg["executions"] + 1):
-            for workload in cfg["workloads"]:
-                if database == 'angra':
-                    db_com = 'angra'
-                    db_process = start_angra(
-                        angra_core_location, rebar3_command, log_file)
-                elif database == 'mongodb':
-                    db_com = 'mongodb'
-                    db_process = start_mongodb(log_file)
-                elif database == 'mysql':
-                    db_com = 'jdbc -cp ' + cfg["mysql_jar_location"] + ' ' + \
-                        '-p db.driver=com.mysql.jdbc.Driver ' +\
-                        '-p db.url=jdbc:mysql://127.0.0.1:3306/ycsb ' +\
-                        '-p db.user=root ' +\
-                        '-p db.passwd=root'
-                    db_process = start_mysql(log_file)
-                    sleep(1)
-                    remove_mysql_files(log_file)
-                elif database == 'couchdb':
-                    db_com = 'couchdb'
-                    db_process = start_couchdb(log_file)
+        for th in cfg["threads"]:
+            for ex in range(1, cfg["executions"] + 1):
+                for workload in cfg["workloads"]:
+                    if database == 'angra':
+                        db_com = 'angra'
+                        db_process = start_angra(
+                            angra_core_location, rebar3_command, log_file)
+                    elif database == 'mongodb':
+                        db_com = 'mongodb'
+                        db_process = start_mongodb(log_file)
+                    elif database == 'mysql':
+                        db_com = 'jdbc -cp ' + \
+                            cfg["mysql_jar_location"] + ' ' + \
+                            '-p db.driver=com.mysql.jdbc.Driver ' +\
+                            '-p db.url=jdbc:mysql://127.0.0.1:3306/ycsb ' +\
+                            '-p db.user=root ' +\
+                            '-p db.passwd=root'
+                        db_process = start_mysql(log_file)
+                        sleep(1)
+                        remove_mysql_files(log_file)
+                    elif database == 'couchdb':
+                        db_com = 'couchdb'
+                        db_process = start_couchdb(log_file)
 
-                for com_type in ['load', 'run']:
-                    command = ycsb_location + \
-			'bin/ycsb ' + \
-                        com_type + \
-                        ' ' + db_com + ' ' + \
-                        thr_com +\
-                        targ_com +\
-                        rcd_com +\
-                        opr_com +\
-                        ' -s -P workloads/' + \
-                        workload + \
-                        '> ' + \
-                        ycsb_results_location + \
-                        str(ex) + '-' + \
-                        com_type + '-' + \
-                        database + '-' + \
-                        workload + '-' + \
-                        '.txt'
-                    log_print = time_stamp() + \
-                        ' - Running ' + com_type + ' number ' + str(ex) + ' for ' + \
-                        database + ' of workload ' + workload
-                    print log_print
-                    log_f = open(log_file, 'a')
-                    log_f.write('\n' + log_print + '\n')
-                    # ycsb_proc = Popen(['/bin/bash'], shell=False, stdin=PIPE, stdout=log_f)
-                    # ycsb_proc.stdin.write(command + '\n')
-                    ycsb_out = check_output(
-                        command, cwd=ycsb_location, shell=True, stderr=subprocess.STDOUT)
-                    log_f.write(ycsb_out)
-                    log_f.close()
-                if database == 'angra':
-                    kill_angra(db_process, log_file)
-                    remove_angra_files(angra_core_location, log_file)
-                elif database == 'mongodb':
-                    remove_mongodb_files(log_file)
-                    kill_mongodb(db_process, log_file)
-                elif database == 'mysql':
-                    kill_mysql(db_process, log_file)
+                    for com_type in ['load', 'run']:
+                        command = ycsb_location + \
+                            'bin/ycsb ' + \
+                            com_type + \
+                            ' ' + db_com + ' ' + \
+                            '-threads ' + str(th) + ' ' +\
+                            targ_com +\
+                            rcd_com +\
+                            opr_com +\
+                            ' -s -P workloads/' + \
+                            workload + \
+                            '> ' + \
+                            log_types('result', ex, com_type, database, th,
+                                                    workload)
+
+                        log_print =  log_types('screen', ex, com_type, database,
+                                              th, workload)
+                        print log_print
+                        log_f = open(log_file, 'a')
+                        log_f.write('\n' + log_print + '\n')
+                        # ycsb_proc = Popen(['/bin/bash'], shell=False, stdin=PIPE, stdout=log_f)
+                        # ycsb_proc.stdin.write(command + '\n')
+                        ycsb_out = check_output(
+                            command, cwd=ycsb_location, shell=True, stderr=subprocess.STDOUT)
+                        log_f.write(ycsb_out)
+                        log_f.close()
+                    if database == 'angra':
+                        kill_angra(db_process, log_file)
+                        remove_angra_files(angra_core_location, log_file)
+                    elif database == 'mongodb':
+                        remove_mongodb_files(log_file)
+                        kill_mongodb(db_process, log_file)
+                    elif database == 'mysql':
+                        kill_mysql(db_process, log_file)
 
 
 def read_result_files(file_type):
     cfg = load_config()
-    ycsb_results_location = cfg["ycsb_results_location"]
     overall_list = []
     gc_totals_list = []
     unknow_list = []
@@ -294,25 +302,30 @@ def read_result_files(file_type):
     insert_failed_totals_list = []
 
     print 'reading', file_type, 'files (start)'
+
     for database in cfg["dbs"]:
-        for ex in range(1, cfg["executions"] + 1):
-            for workload in cfg["workloads"]:
-                file_name = str(ex) + '-' + \
-                    file_type + '-' + \
-                    database + '-' + \
-                    workload + '-' + \
-                    '.txt'
-                with open(ycsb_results_location + file_name, 'r') as csvfile:
-                    result_file = csv.reader(csvfile, delimiter=',')
-                    for row in result_file:
-                        read_line_from_result(str(ex), row,
-                                              overall_list, gc_totals_list, unknow_list,
-                                              cleanup_list, cleanup_totals_list,
-                                              insert_list, insert_totals_list,
-                                              read_list, read_totals_list,
-                                              update_list, update_totals_list,
-                                              read_failed_list, read_failed_totals_list,
-                                              insert_failed_list, insert_failed_totals_list)
+        for th in cfg["threads"]:
+            for ex in range(1, cfg["executions"] + 1):
+                for workload in cfg["workloads"]:
+                    file_name = log_types('result', ex, file_type, database,
+                                          th, workload)
+                    with open(file_name, 'r') as csvfile:
+                        result_file = csv.reader(csvfile, delimiter=',')
+                        for row in result_file:
+                            read_line_from_result(str(ex), row,
+                                                  overall_list, gc_totals_list,
+                                                  unknow_list, cleanup_list,
+                                                  cleanup_totals_list,
+                                                  insert_list,
+                                                  insert_totals_list,
+                                                  read_list, read_totals_list,
+                                                  update_list,
+                                                  update_totals_list,
+                                                  read_failed_list,
+                                                  read_failed_totals_list,
+                                                  insert_failed_list,
+                                                  insert_failed_totals_list)
+
 
         print 'reading', file_type, 'files (end)'
         export_cvs_files(database,
@@ -336,7 +349,7 @@ def read_result_files(file_type):
                              'read_failed', 'read_failed_totals',
                              'insert_failed', 'insert_failed_totals'
                          ],
-                         ycsb_results_location
+                         cfg["ycsb_results_location"]
                          )
 
         overall_list = []
@@ -407,16 +420,17 @@ def read_line_from_result(ex, row,
             if not lst_t:
                 lst_t.append(
                     ['Execution', 'Operations', 'AverageLatency(us)',
-                     'MinLatency(us)', 'MaxLatency(us)', '95thPercentileLatency(us)',
-                     '99thPercentileLatency(us)', 'Return=OK', 'Return=NOT_FOUND'
-                     ])
+                     'MinLatency(us)', 'MaxLatency(us)',
+                     '95thPercentileLatency(us)', '99thPercentileLatency(us)',
+                     'Return=OK', 'Return=NOT_FOUND']
+                )
 
             if not [item for item in lst_t if item[0] == ex]:
                 lst_t.append(
                     [ex, empty_col, empty_col, empty_col,
                      empty_col, empty_col,
-                     empty_col, empty_col, empty_col
-                     ])
+                     empty_col, empty_col, empty_col]
+                )
 
             if str(row[1].strip()) == 'Operations':
                 lst_t[-1][1] = str(row[2].strip())
@@ -457,8 +471,9 @@ def read_line_from_result(ex, row,
                              'GC Time % [Time(%)]'])
 
         if not [item for item in lst_t_gc if item[0] == ex]:
-            lst_t_gc.append([ex, empty_col, empty_col, empty_col, empty_col, empty_col,
-                             empty_col, empty_col, empty_col, empty_col])
+            lst_t_gc.append([ex, empty_col, empty_col, empty_col, empty_col,
+                             empty_col, empty_col, empty_col, empty_col,
+                             empty_col])
 
         if str(row[0].strip()) == '[TOTAL_GCS_Copy]':
             lst_t_gc[-1][1] = str(row[2].strip())
@@ -502,7 +517,7 @@ def export_cvs_files(database, prefix, sufix, lists, file_name_list, ycsb_result
         if len(lists[i]) > 1:
             new_file = open(ycsb_results_location + database + '_' + prefix + '_' +
                             file_name_list[i] + '.' + sufix, 'w'
-                            )
+                           )
             for row in lists[i]:
                 new_file.write(';'.join(row) + '\n')
             new_file.close()
