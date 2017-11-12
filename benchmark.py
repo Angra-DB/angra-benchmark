@@ -1,7 +1,7 @@
 from subprocess import Popen, PIPE, check_output
 from time import sleep
 import csv
-import sys
+import sys, os
 import json
 import subprocess
 
@@ -33,7 +33,7 @@ def log_types(type, ex, com_type, db, th, wl):
             wl + '.log'
     elif type == 'screen':
         to_return = time_stamp() + ' - Running ' + com_type + ' number ' + \
-            str(ex) + ' for ' + db + 'with ' + th + ' threads of workload ' + \
+            str(ex) + ' for ' + db + 'with ' + str(th) + ' threads of workload ' + \
             wl
 
     return to_return
@@ -537,6 +537,10 @@ def main(arg):
     elif arg[0] == 'csv':
         execute_test = False
         make_csv = True
+    elif arg[0] == 'pwd':
+        print os.getcwd()
+        execute_test = False
+	make_csv = False
 
     if execute_test:
         exectute_tests()
