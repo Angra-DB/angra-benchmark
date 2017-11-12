@@ -33,7 +33,7 @@ def log_types(type, ex, com_type, db, th, wl):
             wl + '.log'
     elif type == 'screen':
         to_return = time_stamp() + ' - Running ' + com_type + ' number ' + \
-            str(ex) + ' for ' + db + 'with ' + str(th) + ' threads of workload ' + \
+            str(ex) + ' for ' + db + ' with ' + str(th) + ' threads of workload ' + \
             wl
 
     return to_return
@@ -56,7 +56,7 @@ def remove_couchdb_files(log_file):
     log_f = open(log_file, 'a')
     proc = Popen(['/bin/bash'], shell=False, stdin=PIPE, stdout=log_f, stderr=log_f)
     proc.stdin.write(
-        'curl -X DELETE http://localhost:5984/usertable' + '\n')
+        'curl -X DELETE http://admin:admin@localhost:5984/usertable' + '\n')
     proc.stdin.write('exit' + '\n')
     log_f.close()
     sleep(1)
@@ -216,6 +216,23 @@ def exectute_tests():
         opr_com = ''
     else:
         opr_com = '-p operationcount=' + str(cfg["operationcount"]) + ' '
+
+    db_process = start_angra(angra_core_location, rebar3_command, log_file)
+    kill_angra(db_process, log_file)
+    remove_angra_files(angra_core_location, log_file)
+
+    db_process = start_mongodb(log_file)
+    remove_mongodb_files(log_file)
+    kill_mongodb(db_process, log_file)
+
+    db_process = start_mysql(log_file)
+    remove_mysql_files(log_file)
+    kill_mysql(db_process, log_file)
+
+    db_process = start_couchdb(log_file)
+    remove_couchdb_files(log_file)
+    kill_couchdb(db_process, log_file)
+
     for database in cfg["dbs"]:
         for th in cfg["threads"]:
             for ex in range(1, cfg["executions"] + 1):
@@ -265,6 +282,7 @@ def exectute_tests():
                         # ycsb_proc.stdin.write(command + '\n')
                         ycsb_out = check_output(
                             command, cwd=ycsb_location, shell=True, stderr=subprocess.STDOUT)
+
                         log_f.write(ycsb_out)
                         log_f.close()
                     if database == 'angra':
@@ -275,6 +293,9 @@ def exectute_tests():
                         kill_mongodb(db_process, log_file)
                     elif database == 'mysql':
                         kill_mysql(db_process, log_file)
+                    elif database == 'couchdb':
+                        remove_couchdb_files(log_file)
+                        kill_couchdb(db_process, log_file)
 
 
 def read_result_files(file_type):
