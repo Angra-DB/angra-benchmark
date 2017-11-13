@@ -1,7 +1,8 @@
 from subprocess import Popen, PIPE, check_output
 from time import sleep
 import csv
-import sys, os
+import sys
+import os
 import json
 import subprocess
 
@@ -33,8 +34,8 @@ def log_types(type, ex, com_type, db, th, wl):
             wl + '.log'
     elif type == 'screen':
         to_return = time_stamp() + ' - Running ' + com_type + ' number ' + \
-            str(ex) + ' for ' + db + ' with ' + str(th) + ' threads of workload ' + \
-            wl
+            str(ex) + ' for ' + db + ' with ' + str(th) + \
+            ' threads of workload ' + wl
 
     return to_return
 
@@ -43,7 +44,8 @@ def log_types(type, ex, com_type, db, th, wl):
 def start_couchdb(log_file):
     print time_stamp(), 'start CouchDB (start)'
     log_f = open(log_file, 'a')
-    proc = Popen(['/bin/bash'], shell=False, stdin=PIPE, stdout=log_f, stderr=log_f)
+    proc = Popen(['/bin/bash'], shell=False, stdin=PIPE,
+                 stdout=log_f, stderr=log_f)
     proc.stdin.write('sudo service couchdb start' + '\n')
     log_f.close()
     sleep(3)
@@ -54,7 +56,8 @@ def start_couchdb(log_file):
 def remove_couchdb_files(log_file):
     print time_stamp(), 'Clean CouchDB (start)'
     log_f = open(log_file, 'a')
-    proc = Popen(['/bin/bash'], shell=False, stdin=PIPE, stdout=log_f, stderr=log_f)
+    proc = Popen(['/bin/bash'], shell=False, stdin=PIPE,
+                 stdout=log_f, stderr=log_f)
     proc.stdin.write(
         'curl -X DELETE http://admin:admin@localhost:5984/usertable' + '\n')
     proc.stdin.write('exit' + '\n')
@@ -95,7 +98,8 @@ def remove_mysql_files(log_file):
     script_file.write('CREATE TABLE usertable (YCSB_KEY varchar(255),' +
                       'FIELD0 TEXT, FIELD1 TEXT, FIELD2 TEXT, FIELD3 TEXT,' +
                       'FIELD4 TEXT, FIELD5 TEXT, FIELD6 TEXT, FIELD7 TEXT,' +
-                      'FIELD8 TEXT, FIELD9 TEXT, PRIMARY KEY (YCSB_KEY));' + '\n')
+                      'FIELD8 TEXT, FIELD9 TEXT, PRIMARY KEY (YCSB_KEY));' +
+                      '\n')
     script_file.close()
     log_f = open(log_file, 'a')
     proc = Popen(['/bin/bash'], shell=False,
@@ -161,7 +165,8 @@ def kill_angra(proc, log_file):
 def start_mongodb(log_file):
     print time_stamp(), 'start MongoDB (start)'
     log_f = open(log_file, 'a')
-    proc = Popen(['/bin/bash'], shell=False, stdin=PIPE, stdout=log_f, stderr=log_f)
+    proc = Popen(['/bin/bash'], shell=False, stdin=PIPE,
+                 stdout=log_f, stderr=log_f)
     proc.stdin.write('sudo service mongod start' + '\n')
     sleep(3)
     log_f.close()
@@ -172,7 +177,8 @@ def start_mongodb(log_file):
 def remove_mongodb_files(log_file):
     print time_stamp(), 'Clean MongoDB (start)'
     log_f = open(log_file, 'a')
-    proc = Popen(['/bin/bash'], shell=False, stdin=PIPE, stdout=log_f, stderr=log_f)
+    proc = Popen(['/bin/bash'], shell=False, stdin=PIPE,
+                 stdout=log_f, stderr=log_f)
     proc.stdin.write('mongo' + '\n')
     sleep(1)
     proc.stdin.write('use ycsb' + '\n')
@@ -183,7 +189,7 @@ def remove_mongodb_files(log_file):
     sleep(0.2)
     proc.stdin.write('exit ' + '\n')
     log_f.close()
-    #os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
+    # os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
     print time_stamp(), 'Clean MongoDB (end)'
 
 
@@ -271,17 +277,19 @@ def exectute_tests():
                             workload + \
                             '> ' + \
                             log_types('result', ex, com_type, database, th,
-                                                    workload)
+                                      workload)
 
-                        log_print =  log_types('screen', ex, com_type, database,
-                                              th, workload)
+                        log_print = log_types('screen', ex, com_type,
+                                              database, th, workload)
                         print log_print
                         log_f = open(log_file, 'a')
                         log_f.write('\n' + log_print + '\n')
-                        # ycsb_proc = Popen(['/bin/bash'], shell=False, stdin=PIPE, stdout=log_f)
+                        # ycsb_proc = Popen(['/bin/bash'], shell=False,
+                        # stdin=PIPE, stdout=log_f)
                         # ycsb_proc.stdin.write(command + '\n')
                         ycsb_out = check_output(
-                            command, cwd=ycsb_location, shell=True, stderr=subprocess.STDOUT)
+                            command, cwd=ycsb_location, shell=True,
+                            stderr=subprocess.STDOUT)
 
                         log_f.write(ycsb_out)
                         log_f.close()
@@ -346,7 +354,6 @@ def read_result_files(file_type):
                                                   read_failed_totals_list,
                                                   insert_failed_list,
                                                   insert_failed_totals_list)
-
 
         print 'reading', file_type, 'files (end)'
         export_cvs_files(database,
@@ -532,13 +539,14 @@ def read_line_from_result(ex, row,
         lst_unknow.append(''.join(row))
 
 
-def export_cvs_files(database, prefix, sufix, lists, file_name_list, ycsb_results_location):
+def export_cvs_files(database, prefix, sufix, lists,
+                     file_name_list, ycsb_results_location):
     print 'Creating', prefix, sufix, 'files (start)'
     for i in range(0, len(lists)):
         if len(lists[i]) > 1:
-            new_file = open(ycsb_results_location + database + '_' + prefix + '_' +
-                            file_name_list[i] + '.' + sufix, 'w'
-                           )
+            new_file = open(ycsb_results_location + database + '_' +
+                            prefix + '_' + file_name_list[i] + '.' +
+                            sufix, 'w')
             for row in lists[i]:
                 new_file.write(';'.join(row) + '\n')
             new_file.close()
@@ -561,7 +569,8 @@ def main(arg):
     elif arg[0] == 'pwd':
         print os.getcwd()
         execute_test = False
-	make_csv = False
+
+    make_csv = False
 
     if execute_test:
         exectute_tests()
