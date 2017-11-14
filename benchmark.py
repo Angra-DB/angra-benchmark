@@ -8,6 +8,8 @@ import subprocess
 
 ON_POSIX = 'posix' in sys.builtin_module_names
 
+server_os_user = ''
+server_os_pass = ''
 
 def load_config():
     with open('benchmark.cfg') as data_file:
@@ -31,7 +33,7 @@ def log_types(type, ex, com_type, db, th, wl):
     if type == 'result':
         to_return = cfg["ycsb_results_location"] + str(ex) + '-' + \
             com_type + '-' + db + '-threads-' + str(th) + '-' +\
-            wl + '.log'
+            wl + '.txt'
     elif type == 'screen':
         to_return = time_stamp() + ' - Running ' + com_type + ' number ' + \
             str(ex) + ' for ' + db + ' with ' + str(th) + \
@@ -40,12 +42,73 @@ def log_types(type, ex, com_type, db, th, wl):
     return to_return
 
 
-# couchdb
-def start_couchdb(log_file):
-    print time_stamp(), 'start CouchDB (start)'
+def ycsb_command(com_type, ex, db, th, wl):
+    cfg = load_config()
+
+    if cfg['mode'] == 'remote':
+        host_ip = cfg['server_ip']
+    else:
+        host_ip = '127.0.0.1'
+
+    if db == 'angra':
+        db_com = 'angra -p angra.host='+ host_ip
+    elif db == 'couchdb':
+        db_com = 'couchdb -p couchdb.hosts='+ host_ip
+    elif db == 'mongodb':
+        db_com = 'mongodb -p mongodb.url=mongodb://' + host_ip +':27017/ycsb?w=1'
+    elif db == 'mysql':
+        db_com = 'jdbc -cp ' + \
+            cfg["mysql_jar_location"] + ' ' + \
+            '-p db.driver=com.mysql.jdbc.Driver ' +\
+            '-p db.url=jdbc:mysql://' + host_ip + ':3306/ycsb ' +\
+            '-p db.user=root ' +\
+            '-p db.passwd=root'
+
+    if cfg["target"] == 0:
+        targ_com = ''
+    else:
+        targ_com = '-target ' + str(cfg["target"]) + ' '
+
+    if cfg["recordcount"] == 0:
+        rcd_com = ''
+    else:
+        rcd_com = '-p recordcount=' + str(cfg["recordcount"]) + ' '
+
+    if cfg["operationcount"] == 0:
+        opr_com = ''
+    else:
+        opr_com = '-p operationcount=' + str(cfg["operationcount"]) + ' '
+
+    command = cfg["ycsb_location"] + 'bin/ycsb ' + com_type + \
+        ' ' + db_com + ' -threads ' + str(th) + ' ' + \
+        targ_com + rcd_com + opr_com + ' -s -P workloads/' + \
+        wl + '> ' + log_types('result', ex, com_type, db, th, wl)
+
+    return command
+
+
+def start_process(log_file):
+    cfg = load_config()
     log_f = open(log_file, 'a')
     proc = Popen(['/bin/bash'], shell=False, stdin=PIPE,
                  stdout=log_f, stderr=log_f)
+    if cfg['mode'] == 'remote':
+        comm = 'ssh -t -i '+ cfg['local_private_key'] +' ' + server_os_user + '@' + cfg['server_ip']
+
+        print comm
+        proc.stdin.write(comm + '\n')
+    proc.stdin.write('sudo ls' + '\n')
+    # proc.stdin.write(server_os_pass + '\n')
+    log_f.close()
+
+    return proc
+
+
+# couchdb
+def start_couchdb(log_file):
+    print time_stamp(), 'start CouchDB (start)'
+    proc = start_process(log_file)
+    log_f = open(log_file, 'a')
     proc.stdin.write('sudo service couchdb start' + '\n')
     log_f.close()
     sleep(3)
@@ -79,9 +142,8 @@ def kill_couchdb(proc, log_file):
 
 def start_mysql(log_file):
     print time_stamp(), 'start MySQL (start)'
+    proc = start_process(log_file)
     log_f = open(log_file, 'a')
-    proc = Popen(['/bin/bash'], shell=False,
-                 stdin=PIPE, stdout=log_f, stderr=log_f)
     proc.stdin.write('sudo service mysql start' + '\n')
     log_f.close()
     sleep(3)
@@ -126,9 +188,8 @@ def kill_mysql(proc, log_file):
 
 def start_angra(angra_core_location, rebar3_command, log_file):
     print time_stamp(), 'start Angra-DB (start)'
+    proc = start_process(log_file)
     log_f = open(log_file, 'a')
-    proc = Popen(['/bin/bash'], shell=False,
-                 stdin=PIPE, stdout=log_f, stderr=log_f)
     proc.stdin.write('cd ' + angra_core_location + '\n')
     sleep(0.1)
     proc.stdin.write(rebar3_command + ' shell' + '\n')
@@ -164,9 +225,8 @@ def kill_angra(proc, log_file):
 # mongodb
 def start_mongodb(log_file):
     print time_stamp(), 'start MongoDB (start)'
+    proc = start_process(log_file)
     log_f = open(log_file, 'a')
-    proc = Popen(['/bin/bash'], shell=False, stdin=PIPE,
-                 stdout=log_f, stderr=log_f)
     proc.stdin.write('sudo service mongod start' + '\n')
     sleep(3)
     log_f.close()
@@ -176,9 +236,8 @@ def start_mongodb(log_file):
 
 def remove_mongodb_files(log_file):
     print time_stamp(), 'Clean MongoDB (start)'
+    proc = start_process(log_file)
     log_f = open(log_file, 'a')
-    proc = Popen(['/bin/bash'], shell=False, stdin=PIPE,
-                 stdout=log_f, stderr=log_f)
     proc.stdin.write('mongo' + '\n')
     sleep(1)
     proc.stdin.write('use ycsb' + '\n')
@@ -208,21 +267,6 @@ def exectute_tests():
     ycsb_location = cfg["ycsb_location"]
     log_file = cfg["ycsb_results_location"] + time_stamp_file() + '.log'
 
-    if cfg["target"] == 0:
-        targ_com = ''
-    else:
-        targ_com = '-target ' + str(cfg["target"]) + ' '
-
-    if cfg["recordcount"] == 0:
-        rcd_com = ''
-    else:
-        rcd_com = '-p recordcount=' + str(cfg["recordcount"]) + ' '
-
-    if cfg["operationcount"] == 0:
-        opr_com = ''
-    else:
-        opr_com = '-p operationcount=' + str(cfg["operationcount"]) + ' '
-
     db_process = start_angra(angra_core_location, rebar3_command, log_file)
     kill_angra(db_process, log_file)
     remove_angra_files(angra_core_location, log_file)
@@ -244,40 +288,19 @@ def exectute_tests():
             for ex in range(1, cfg["executions"] + 1):
                 for workload in cfg["workloads"]:
                     if database == 'angra':
-                        db_com = 'angra'
                         db_process = start_angra(
                             angra_core_location, rebar3_command, log_file)
                     elif database == 'mongodb':
-                        db_com = 'mongodb'
                         db_process = start_mongodb(log_file)
                     elif database == 'mysql':
-                        db_com = 'jdbc -cp ' + \
-                            cfg["mysql_jar_location"] + ' ' + \
-                            '-p db.driver=com.mysql.jdbc.Driver ' +\
-                            '-p db.url=jdbc:mysql://127.0.0.1:3306/ycsb ' +\
-                            '-p db.user=root ' +\
-                            '-p db.passwd=root'
                         db_process = start_mysql(log_file)
                         sleep(1)
                         remove_mysql_files(log_file)
                     elif database == 'couchdb':
-                        db_com = 'couchdb'
                         db_process = start_couchdb(log_file)
-
                     for com_type in ['load', 'run']:
-                        command = ycsb_location + \
-                            'bin/ycsb ' + \
-                            com_type + \
-                            ' ' + db_com + ' ' + \
-                            '-threads ' + str(th) + ' ' +\
-                            targ_com +\
-                            rcd_com +\
-                            opr_com +\
-                            ' -s -P workloads/' + \
-                            workload + \
-                            '> ' + \
-                            log_types('result', ex, com_type, database, th,
-                                      workload)
+                        command = ycsb_command(com_type, ex, database,
+                                               th, workload)
 
                         log_print = log_types('screen', ex, com_type,
                                               database, th, workload)
@@ -573,6 +596,15 @@ def main(arg):
     make_csv = False
 
     if execute_test:
+        cfg = load_config()
+        if cfg['mode'] == 'remote':
+            print 'Remote mode, please type remote O.S. admin user/pass\n'
+            global server_os_user
+            server_os_user = raw_input('remote os user: ')
+
+            global server_os_pass
+            server_os_pass = raw_input('remote os password: ')
+
         exectute_tests()
     if make_csv:
         for file_type in ['run', 'load']:
