@@ -8,8 +8,9 @@ import subprocess
 
 ON_POSIX = 'posix' in sys.builtin_module_names
 
+cfg = None
 server_os_user = ''
-server_os_pass = ''
+
 
 def load_config():
     with open('benchmark.cfg') as data_file:
@@ -29,7 +30,8 @@ def time_stamp():
 
 
 def log_types(type, ex, com_type, db, th, wl):
-    cfg = load_config()
+    global cfg
+
     if type == 'result':
         to_return = cfg["ycsb_results_location"] + str(ex) + '-' + \
             com_type + '-' + db + '-threads-' + str(th) + '-' +\
@@ -42,8 +44,29 @@ def log_types(type, ex, com_type, db, th, wl):
     return to_return
 
 
+def init_used_databases(log_file):
+    global cfg
+    for db in cfg["dbs"]:
+        if db == 'angra':
+            db_process = start_angra(log_file)
+            kill_angra(db_process, log_file)
+            remove_angra_files(log_file)
+        elif db == 'mongodb':
+            db_process = start_mongodb(log_file)
+            remove_mongodb_files(log_file)
+            kill_mongodb(db_process, log_file)
+        elif db == 'mysql':
+            db_process = start_mysql(log_file)
+            remove_mysql_files(log_file)
+            kill_mysql(db_process, log_file)
+        elif db == 'couchdb':
+            db_process = start_couchdb(log_file)
+            remove_couchdb_files(log_file)
+            kill_couchdb(db_process, log_file)
+
+
 def ycsb_command(com_type, ex, db, th, wl):
-    cfg = load_config()
+    global cfg
 
     if cfg['mode'] == 'remote':
         host_ip = cfg['server_ip']
@@ -51,11 +74,12 @@ def ycsb_command(com_type, ex, db, th, wl):
         host_ip = '127.0.0.1'
 
     if db == 'angra':
-        db_com = 'angra -p angra.host='+ host_ip
+        db_com = 'angra -p angra.host=' + host_ip
     elif db == 'couchdb':
-        db_com = 'couchdb -p couchdb.hosts='+ host_ip
+        db_com = 'couchdb -p couchdb.hosts=' + host_ip
     elif db == 'mongodb':
-        db_com = 'mongodb -p mongodb.url=mongodb://' + host_ip +':27017/ycsb?w=1'
+        db_com = 'mongodb -p mongodb.url=mongodb://' + host_ip + \
+                 ':27017/ycsb?w=1'
     elif db == 'mysql':
         db_com = 'jdbc -cp ' + \
             cfg["mysql_jar_location"] + ' ' + \
@@ -81,21 +105,21 @@ def ycsb_command(com_type, ex, db, th, wl):
 
     command = cfg["ycsb_location"] + 'bin/ycsb ' + com_type + \
         ' ' + db_com + ' -threads ' + str(th) + ' ' + \
-        targ_com + rcd_com + opr_com + ' -s -P workloads/' + \
+        targ_com + rcd_com + opr_com + '-s -P workloads/' + \
         wl + '> ' + log_types('result', ex, com_type, db, th, wl)
 
     return command
 
 
 def start_process(log_file):
-    cfg = load_config()
+    global cfg
+
     log_f = open(log_file, 'a')
     proc = Popen(['/bin/bash'], shell=False, stdin=PIPE,
                  stdout=log_f, stderr=log_f)
     if cfg['mode'] == 'remote':
-        comm = 'ssh -t -i '+ cfg['local_private_key'] +' ' + server_os_user + '@' + cfg['server_ip']
-
-        print comm
+        comm = 'ssh -t -i ' + cfg["local_private_key"] + \
+               ' ' + server_os_user + '@' + cfg['server_ip']
         proc.stdin.write(comm + '\n')
     proc.stdin.write('sudo ls' + '\n')
     # proc.stdin.write(server_os_pass + '\n')
@@ -118,9 +142,8 @@ def start_couchdb(log_file):
 
 def remove_couchdb_files(log_file):
     print time_stamp(), 'Clean CouchDB (start)'
+    proc = start_process(log_file)
     log_f = open(log_file, 'a')
-    proc = Popen(['/bin/bash'], shell=False, stdin=PIPE,
-                 stdout=log_f, stderr=log_f)
     proc.stdin.write(
         'curl -X DELETE http://admin:admin@localhost:5984/usertable' + '\n')
     proc.stdin.write('exit' + '\n')
@@ -153,22 +176,31 @@ def start_mysql(log_file):
 
 def remove_mysql_files(log_file):
     print time_stamp(), 'Clean MySQL (start)'
-    script_file = file('script.sql', 'w')
-    script_file.write('DROP DATABASE IF EXISTS ycsb;' + '\n')
-    script_file.write('CREATE DATABASE ycsb;' + '\n')
-    script_file.write('USE ycsb;' + '\n')
-    script_file.write('CREATE TABLE usertable (YCSB_KEY varchar(255),' +
-                      'FIELD0 TEXT, FIELD1 TEXT, FIELD2 TEXT, FIELD3 TEXT,' +
-                      'FIELD4 TEXT, FIELD5 TEXT, FIELD6 TEXT, FIELD7 TEXT,' +
-                      'FIELD8 TEXT, FIELD9 TEXT, PRIMARY KEY (YCSB_KEY));' +
-                      '\n')
-    script_file.close()
+    # script_file = file('script.sql', 'w')
+    # script_file.write('DROP DATABASE IF EXISTS ycsb;' + '\n')
+    # script_file.write('CREATE DATABASE ycsb;' + '\n')
+    # script_file.write('USE ycsb;' + '\n')
+    # script_file.write('CREATE TABLE usertable (YCSB_KEY varchar(255),' +
+    #                   'FIELD0 TEXT, FIELD1 TEXT, FIELD2 TEXT, FIELD3 TEXT,' +
+    #                   'FIELD4 TEXT, FIELD5 TEXT, FIELD6 TEXT, FIELD7 TEXT,' +
+    #                   'FIELD8 TEXT, FIELD9 TEXT, PRIMARY KEY (YCSB_KEY));' +
+    #                   '\n')
+    # script_file.close()
+    proc = start_process(log_file)
     log_f = open(log_file, 'a')
-    proc = Popen(['/bin/bash'], shell=False,
-                 stdin=PIPE, stdout=log_f, stderr=log_f)
-    proc.stdin.write('mysql -u root -proot < script.sql' + '\n')
-    sleep(2)
-    proc.stdin.write('sudo rm -rf script.sql' + '\n')
+    proc.stdin.write('mysql -u root -proot' + '\n')
+    sleep(1)
+    proc.stdin.write('DROP DATABASE IF EXISTS ycsb;' + '\n')
+    proc.stdin.write('CREATE DATABASE ycsb;' + '\n')
+    proc.stdin.write('USE ycsb;' + '\n')
+    proc.stdin.write('CREATE TABLE usertable (YCSB_KEY varchar(255),' + '\n')
+    proc.stdin.write('FIELD0 TEXT, FIELD1 TEXT, FIELD2 TEXT, FIELD3 TEXT,' +
+                     '\n')
+    proc.stdin.write('FIELD4 TEXT, FIELD5 TEXT, FIELD6 TEXT, FIELD7 TEXT,' +
+                     '\n')
+    proc.stdin.write('FIELD8 TEXT, FIELD9 TEXT, PRIMARY KEY (YCSB_KEY));' +
+                     '\n')
+    # proc.stdin.write('sudo rm -rf script.sql' + '\n')
     sleep(0.1)
     proc.stdin.write('exit' + '\n')
     log_f.close()
@@ -183,16 +215,17 @@ def kill_mysql(proc, log_file):
     log_f.close()
     print time_stamp(), 'stop MySQL (end)'
 
+
 # angra
+def start_angra(log_file):
+    global cfg
 
-
-def start_angra(angra_core_location, rebar3_command, log_file):
     print time_stamp(), 'start Angra-DB (start)'
     proc = start_process(log_file)
     log_f = open(log_file, 'a')
-    proc.stdin.write('cd ' + angra_core_location + '\n')
+    proc.stdin.write('cd ' + cfg["angra_core_location"] + '\n')
     sleep(0.1)
-    proc.stdin.write(rebar3_command + ' shell' + '\n')
+    proc.stdin.write(cfg["rebar3_command"] + ' shell' + '\n')
     sleep(3)
     proc.stdin.write('adb_app:kickoff(all).' + '\n')
     log_f.close()
@@ -200,13 +233,15 @@ def start_angra(angra_core_location, rebar3_command, log_file):
     return proc
 
 
-def remove_angra_files(angra_core_location, log_file):
+def remove_angra_files(log_file):
+    global cfg
+
     print time_stamp(), 'Clean Angra-DB (start)'
     log_f = open(log_file, 'a')
-    out = check_output(['rm', '-rf', angra_core_location +
+    out = check_output(['rm', '-rf', cfg["angra_core_location"] +
                         'ycsb' + 'Docs.adb'], stderr=subprocess.STDOUT)
     log_f.write(out + '\n')
-    out = check_output(['rm', '-rf', angra_core_location +
+    out = check_output(['rm', '-rf', cfg["angra_core_location"] +
                         'ycsb' + 'Index.adb'], stderr=subprocess.STDOUT)
     log_f.write(out + '\n')
     log_f.close()
@@ -261,35 +296,18 @@ def kill_mongodb(proc, log_file):
 
 
 def exectute_tests():
-    cfg = load_config()
-    angra_core_location = cfg["angra_core_location"]
-    rebar3_command = cfg["rebar3_command"]
-    ycsb_location = cfg["ycsb_location"]
+    global cfg
+
     log_file = cfg["ycsb_results_location"] + time_stamp_file() + '.log'
 
-    db_process = start_angra(angra_core_location, rebar3_command, log_file)
-    kill_angra(db_process, log_file)
-    remove_angra_files(angra_core_location, log_file)
-
-    db_process = start_mongodb(log_file)
-    remove_mongodb_files(log_file)
-    kill_mongodb(db_process, log_file)
-
-    db_process = start_mysql(log_file)
-    remove_mysql_files(log_file)
-    kill_mysql(db_process, log_file)
-
-    db_process = start_couchdb(log_file)
-    remove_couchdb_files(log_file)
-    kill_couchdb(db_process, log_file)
+    init_used_databases(log_file)
 
     for database in cfg["dbs"]:
         for th in cfg["threads"]:
             for ex in range(1, cfg["executions"] + 1):
                 for workload in cfg["workloads"]:
                     if database == 'angra':
-                        db_process = start_angra(
-                            angra_core_location, rebar3_command, log_file)
+                        db_process = start_angra(log_file)
                     elif database == 'mongodb':
                         db_process = start_mongodb(log_file)
                     elif database == 'mysql':
@@ -311,14 +329,14 @@ def exectute_tests():
                         # stdin=PIPE, stdout=log_f)
                         # ycsb_proc.stdin.write(command + '\n')
                         ycsb_out = check_output(
-                            command, cwd=ycsb_location, shell=True,
+                            command, cwd=cfg["ycsb_location"], shell=True,
                             stderr=subprocess.STDOUT)
 
                         log_f.write(ycsb_out)
                         log_f.close()
                     if database == 'angra':
                         kill_angra(db_process, log_file)
-                        remove_angra_files(angra_core_location, log_file)
+                        remove_angra_files(log_file)
                     elif database == 'mongodb':
                         remove_mongodb_files(log_file)
                         kill_mongodb(db_process, log_file)
@@ -578,6 +596,9 @@ def export_cvs_files(database, prefix, sufix, lists,
 
 
 def main(arg):
+    global cfg
+    cfg = load_config()
+
     if arg[0] == 'all':
         execute_test = True
         make_csv = True
@@ -598,12 +619,10 @@ def main(arg):
     if execute_test:
         cfg = load_config()
         if cfg['mode'] == 'remote':
-            print 'Remote mode, please type remote O.S. admin user/pass\n'
+            print 'Remote mode, please type remote O.S. admin user\n'
             global server_os_user
-            server_os_user = raw_input('remote os user: ')
+            server_os_user = raw_input('remote O.S. user: ')
 
-            global server_os_pass
-            server_os_pass = raw_input('remote os password: ')
 
         exectute_tests()
     if make_csv:
