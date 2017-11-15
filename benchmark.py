@@ -12,6 +12,14 @@ cfg = None
 server_os_user = ''
 
 
+def is_number(s):
+    try:
+        float(s)
+        return True
+    except ValueError:
+        return False
+
+
 def load_config():
     with open('benchmark.cfg') as data_file:
         data = json.load(data_file)
@@ -347,135 +355,56 @@ def exectute_tests():
                         kill_couchdb(db_process, log_file)
 
 
-def read_result_files(file_type):
+def read_result_files():
     cfg = load_config()
     overall_list = []
     gc_totals_list = []
     unknow_list = []
+    operations_list = []
+    totals_list = []
 
-    cleanup_list = []
-    cleanup_totals_list = []
+    print time_stamp(), 'reading files (start)'
+    for file_type in ['load', 'run']:
+        for db in cfg["dbs"]:
+            for th in cfg["threads"]:
+                for ex in range(1, cfg["executions"] + 1):
+                    for wl in cfg["workloads"]:
+                        file_name = log_types('result', ex, file_type, db,
+                                              th, wl)
+                        with open(file_name, 'r') as csvfile:
+                            result_file = csv.reader(csvfile, delimiter=',')
+                            for row in result_file:
+                                read_line_from_result(db, str(ex), str(th),
+                                                      wl, file_type, row,
+                                                      operations_list,
+                                                      totals_list,
+                                                      overall_list,
+                                                      gc_totals_list,
+                                                      unknow_list)
 
-    insert_list = []
-    insert_totals_list = []
+    print time_stamp(), 'reading files (end)'
 
-    read_list = []
-    read_totals_list = []
+    unknow_list = clean_unkow(unknow_list)
 
-    update_list = []
-    update_totals_list = []
-
-    read_failed_list = []
-    read_failed_totals_list = []
-
-    insert_failed_list = []
-    insert_failed_totals_list = []
-
-    print 'reading', file_type, 'files (start)'
-
-    for database in cfg["dbs"]:
-        for th in cfg["threads"]:
-            for ex in range(1, cfg["executions"] + 1):
-                for workload in cfg["workloads"]:
-                    file_name = log_types('result', ex, file_type, database,
-                                          th, workload)
-                    with open(file_name, 'r') as csvfile:
-                        result_file = csv.reader(csvfile, delimiter=',')
-                        for row in result_file:
-                            read_line_from_result(str(ex), row,
-                                                  overall_list, gc_totals_list,
-                                                  unknow_list, cleanup_list,
-                                                  cleanup_totals_list,
-                                                  insert_list,
-                                                  insert_totals_list,
-                                                  read_list, read_totals_list,
-                                                  update_list,
-                                                  update_totals_list,
-                                                  read_failed_list,
-                                                  read_failed_totals_list,
-                                                  insert_failed_list,
-                                                  insert_failed_totals_list)
-
-        print 'reading', file_type, 'files (end)'
-        export_cvs_files(database,
-                         file_type,
-                         'csv',
-                         [
-                             overall_list, gc_totals_list, unknow_list,
-                             cleanup_list, cleanup_totals_list,
-                             insert_list, insert_totals_list,
-                             read_list, read_totals_list,
-                             update_list, update_totals_list,
-                             read_failed_list, read_failed_totals_list,
-                             insert_failed_list, insert_failed_totals_list
-                         ],
-                         [
-                             'overall', 'GC_totals', 'unknow',
-                             'cleanup', 'cleanup_totals',
-                             'insert', 'insert_totals',
-                             'read', 'read_totals',
-                             'update', 'update_totals',
-                             'read_failed', 'read_failed_totals',
-                             'insert_failed', 'insert_failed_totals'
-                         ],
-                         cfg["ycsb_results_location"]
-                         )
-
-        overall_list = []
-        gc_totals_list = []
-        unknow_list = []
-
-        cleanup_list = []
-        cleanup_totals_list = []
-
-        insert_list = []
-        insert_totals_list = []
-
-        read_list = []
-        read_totals_list = []
-
-        update_list = []
-        update_totals_list = []
-
-        read_failed_list = []
-        read_failed_totals_list = []
-
-        insert_failed_list = []
-        insert_failed_totals_list = []
+    export_cvs_files('csv',
+                     [
+                         unknow_list, overall_list, gc_totals_list,
+                         operations_list, totals_list
+                     ],
+                     [
+                         'unknow', 'overall', 'GC_totals',
+                         'operations', 'totals'
+                     ],
+                     cfg["ycsb_results_location"])
 
 
-def read_line_from_result(ex, row,
-                          lst_overall, lst_t_gc, lst_unknow,
-                          lst_cleanup, lst_t_cleanup,
-                          lst_insert, lst_t_insert,
-                          lst_read, lst_t_read,
-                          lst_update, lst_t_update,
-                          lst_read_fail, lst_t_read_fail,
-                          lst_insert_fail, lst_t_insert_fail):
+def read_line_from_result(db, ex, th, wl, stage, row, lst_ops, lst_totals,
+                          lst_overall, lst_t_gc, lst_unknow):
 
     empty_col = ''
 
-    if row[0] in ('[READ]',
-                  '[READ-FAILED]',
-                  '[UPDATE]', '[INSERT]', '[CLEANUP]', '[INSERT-FAILED]'):
-        if row[0] == '[READ]':
-            lst = lst_read
-            lst_t = lst_t_read
-        elif row[0] == '[READ-FAILED]':
-            lst = lst_read_fail
-            lst_t = lst_t_read_fail
-        elif row[0] == '[UPDATE]':
-            lst = lst_update
-            lst_t = lst_t_update
-        elif row[0] == '[INSERT]':
-            lst = lst_insert
-            lst_t = lst_t_insert
-        elif row[0] == '[CLEANUP]':
-            lst = lst_cleanup
-            lst_t = lst_t_cleanup
-        elif row[0] == '[INSERT-FAILED]':
-            lst = lst_insert_fail
-            lst_t = lst_t_insert_fail
+    if row[0] in ('[READ]', '[READ-FAILED]', '[UPDATE]', '[UPDATE-FAILED]',
+                  '[INSERT]', '[CLEANUP]', '[INSERT-FAILED]'):
 
         if str(row[1].strip()) in ['Operations',
                                    'AverageLatency(us)',
@@ -484,54 +413,87 @@ def read_line_from_result(ex, row,
                                    '95thPercentileLatency(us)',
                                    '99thPercentileLatency(us)',
                                    'Return=OK',
-                                   'Return=NOT_FOUND']:
+                                   'Return=NOT_FOUND',
+                                   'Return=UNEXPECTED_STATE']:
 
-            if not lst_t:
-                lst_t.append(
-                    ['Execution', 'Operations', 'AverageLatency(us)',
+            if not lst_totals:
+                lst_totals.append(
+                    ['Execution', 'Database', 'Threads',
+                     'Workload', 'Stage', 'Operation',
+                     '# Operations', 'AverageLatency(us)',
                      'MinLatency(us)', 'MaxLatency(us)',
                      '95thPercentileLatency(us)', '99thPercentileLatency(us)',
-                     'Return=OK', 'Return=NOT_FOUND']
+                     'Return=OK', 'Return=NOT_FOUND',
+                     'Return=UNEXPECTED_STATE']
                 )
 
-            if not [item for item in lst_t if item[0] == ex]:
-                lst_t.append(
-                    [ex, empty_col, empty_col, empty_col,
+            if not [item for item in lst_totals if
+                    item[0] == ex
+                    and item[1] == db
+                    and item[2] == th
+                    and item[3] == wl
+                    and item[4] == stage
+                    and item[5] == row[0].replace('[', '').replace(']', '')]:
+                lst_totals.append(
+                    [ex, db, th, wl, stage,
+                     row[0].replace('[', '').replace(']', ''),
+                     empty_col, empty_col, empty_col,
                      empty_col, empty_col,
-                     empty_col, empty_col, empty_col]
+                     empty_col, empty_col, empty_col, empty_col]
                 )
 
             if str(row[1].strip()) == 'Operations':
-                lst_t[-1][1] = str(row[2].strip())
+                lst_totals[-1][6] = str(row[2].strip())
             elif str(row[1].strip()) == 'AverageLatency(us)':
-                lst_t[-1][2] = str(row[2].strip())
+                lst_totals[-1][7] = str(row[2].strip())
             elif str(row[1].strip()) == 'MinLatency(us)':
-                lst_t[-1][3] = str(row[2].strip())
+                lst_totals[-1][8] = str(row[2].strip())
             elif str(row[1].strip()) == 'MaxLatency(us)':
-                lst_t[-1][4] = str(row[2].strip())
+                lst_totals[-1][9] = str(row[2].strip())
             elif str(row[1].strip()) == '95thPercentileLatency(us)':
-                lst_t[-1][5] = str(row[2].strip())
+                lst_totals[-1][10] = str(row[2].strip())
             elif str(row[1].strip()) == '99thPercentileLatency(us)':
-                lst_t[-1][6] = str(row[2].strip())
+                lst_totals[-1][11] = str(row[2].strip())
             elif str(row[1].strip()) == 'Return=OK':
-                lst_t[-1][7] = str(row[2].strip())
+                lst_totals[-1][12] = str(row[2].strip())
             elif str(row[1].strip()) == 'Return=NOT_FOUND':
-                lst_t[-1][8] = str(row[2].strip())
-        else:
-            if not lst:
-                lst.append(['Execution', 'micro second', 'quant'])
+                lst_totals[-1][13] = str(row[2].strip())
+            elif str(row[1].strip()) == 'Return=UNEXPECTED_STATE':
+                lst_totals[-1][14] = str(row[2].strip())
 
-            lst.append([ex, 'error', 'error'])
-            lst[-1][1] = str(row[1].strip())
-            lst[-1][2] = str(row[2].strip())
+        elif (is_number(row[1].strip()) and is_number(row[2].strip())):
+            if not lst_ops:
+                lst_ops.append(['Execution',
+                                'Database',
+                                'Threads',
+                                'Workload',
+                                'Stage',
+                                'Operation',
+                                'Latency (us)', 'Frequence'])
+
+            lst_ops.append([ex, db, th, wl, stage,
+                            row[0].replace('[', '').replace(']', ''),
+                            'error', 'error'])
+
+            lst_ops[-1][6] = str(row[1].strip())
+            lst_ops[-1][7] = str(row[2].strip())
+        else:
+            lst_unknow.append(''.join(row))
 
     elif '[TOTAL_GC' in row[0]:
 
         if not lst_t_gc:
-            lst_t_gc.append(['Execution',
-                             'GCS_Copy [Count]',
+            lst_t_gc.append(['Execution', 'Database', 'Threads',
+                             'Workload', 'Stage',
+                             'GCS Copy [Count]',
+                             'GCS G1 Young Generation [Count]',
+                             'GCS G1 Old Generation [Count]',
                              'GC Time Copy [Time(ms)]',
                              'GC Time % Copy [Time(%)]',
+                             'GC Time G1 Young Generation [Time(ms)]',
+                             'GC Time % G1 Young Generation [Time(%)]',
+                             'GC Time G1 Old Generation [Time(ms)]',
+                             'GC Time % G1 Old Generation [Time(%)]',
                              'GCS MarkSweepCompact [Count]',
                              'GC Time MarkSweepCompact [Time(ms)]',
                              'GC Time % MarkSweepCompact [Time(%)]',
@@ -539,60 +501,106 @@ def read_line_from_result(ex, row,
                              'GC Time [Time(ms)]',
                              'GC Time % [Time(%)]'])
 
-        if not [item for item in lst_t_gc if item[0] == ex]:
-            lst_t_gc.append([ex, empty_col, empty_col, empty_col, empty_col,
+        if not [item for item in lst_t_gc
+                if item[0] == ex
+                and item[1] == db
+                and item[2] == th
+                and item[3] == wl
+                and item[4] == stage]:
+            lst_t_gc.append([ex, db, th, wl, stage,
                              empty_col, empty_col, empty_col, empty_col,
-                             empty_col])
+                             empty_col, empty_col, empty_col, empty_col,
+                             empty_col, empty_col, empty_col, empty_col,
+                             empty_col, empty_col, empty_col])
 
         if str(row[0].strip()) == '[TOTAL_GCS_Copy]':
-            lst_t_gc[-1][1] = str(row[2].strip())
-        elif str(row[0].strip()) == '[TOTAL_GC_TIME_Copy]':
-            lst_t_gc[-1][2] = str(row[2].strip())
-        elif str(row[0].strip()) == '[TOTAL_GC_TIME_%_Copy]':
-            lst_t_gc[-1][3] = str(row[2].strip())
-        elif str(row[0].strip()) == '[TOTAL_GCS_MarkSweepCompact]':
-            lst_t_gc[-1][4] = str(row[2].strip())
-        elif str(row[0].strip()) == '[TOTAL_GC_TIME_MarkSweepCompact]':
             lst_t_gc[-1][5] = str(row[2].strip())
-        elif str(row[0].strip()) == '[TOTAL_GC_TIME_%_MarkSweepCompact]':
+        elif str(row[0].strip()) == '[TOTAL_GCS_G1_Young_Generation]':
             lst_t_gc[-1][6] = str(row[2].strip())
-        elif str(row[0].strip()) == '[TOTAL_GCs]':
+        elif str(row[0].strip()) == '[TOTAL_GCS_G1_Old_Generation]':
             lst_t_gc[-1][7] = str(row[2].strip())
+        elif str(row[0].strip()) == '[TOTAL_GC_TIME_Copy]':
+            lst_t_gc[-1][8] = str(row[2].strip())
+        elif str(row[0].strip()) == '[TOTAL_GC_TIME_%_Copy]':
+            lst_t_gc[-1][9] = str(row[2].strip())
+        elif str(row[0].strip()) == '[TOTAL_GC_TIME_G1_Young_Generation]':
+            lst_t_gc[-1][10] = str(row[2].strip())
+        elif str(row[0].strip()) == '[TOTAL_GC_TIME_%_G1_Young_Generation]':
+            lst_t_gc[-1][11] = str(row[2].strip())
+        elif str(row[0].strip()) == '[TOTAL_GC_TIME_G1_Old_Generation]':
+            lst_t_gc[-1][12] = str(row[2].strip())
+        elif str(row[0].strip()) == '[TOTAL_GC_TIME_%_G1_Old_Generation]':
+            lst_t_gc[-1][13] = str(row[2].strip())
+        elif str(row[0].strip()) == '[TOTAL_GCS_MarkSweepCompact]':
+            lst_t_gc[-1][14] = str(row[2].strip())
+        elif str(row[0].strip()) == '[TOTAL_GC_TIME_MarkSweepCompact]':
+            lst_t_gc[-1][15] = str(row[2].strip())
+        elif str(row[0].strip()) == '[TOTAL_GC_TIME_%_MarkSweepCompact]':
+            lst_t_gc[-1][16] = str(row[2].strip())
+        elif str(row[0].strip()) == '[TOTAL_GCs]':
+            lst_t_gc[-1][17] = str(row[2].strip())
         elif str(row[0].strip()) == '[TOTAL_GC_TIME]':
-            lst_t_gc[-1][8] = str(row[2].strip())
+            lst_t_gc[-1][18] = str(row[2].strip())
         elif str(row[0].strip()) == '[TOTAL_GC_TIME_%]':
-            lst_t_gc[-1][8] = str(row[2].strip())
+            lst_t_gc[-1][19] = str(row[2].strip())
+        else:
+            lst_unknow.append(''.join(row))
+
     elif row[0] == '[OVERALL]':
 
         if not lst_overall:
-            lst_overall.append(['Execution',
+            lst_overall.append(['Execution', 'Database', 'Threads',
+                                'Workload', 'Stage',
                                 'RunTime(ms)',
                                 'Throughput(ops/sec)'])
 
-        if not [item for item in lst_overall if item[0] == ex]:
-            lst_overall.append([ex, empty_col, empty_col])
+        if not [item for item in lst_overall
+                if item[0] == ex
+                and item[1] == db
+                and item[2] == th
+                and item[3] == wl
+                and item[4] == stage]:
+            lst_overall.append([ex, db, th, wl, stage,
+                                empty_col, empty_col])
 
         if str(row[1].strip()) == 'RunTime(ms)':
-            lst_overall[-1][1] = str(row[2].strip())
+            lst_overall[-1][5] = str(row[2].strip())
         elif str(row[1].strip()) == 'Throughput(ops/sec)':
-            lst_overall[-1][2] = str(row[2].strip())
+            lst_overall[-1][6] = str(row[2].strip())
+        else:
+            lst_unknow.append(''.join(row))
     else:
         lst_unknow.append(''.join(row))
 
 
-def export_cvs_files(database, prefix, sufix, lists,
+def clean_unkow(lst_unknow):
+    know_unknow = [
+        'Adding shard node URL:',
+        'Using shards:',
+        'Adding shard node URL:',
+        'mongo client connection created with',
+        'ycsb_home:::'
+    ]
+    for k in know_unknow:
+        lst_unknow = [x for x in lst_unknow if k not in x]
+    return lst_unknow
+
+
+def export_cvs_files(sufix, lists,
                      file_name_list, ycsb_results_location):
-    print 'Creating', prefix, sufix, 'files (start)'
+    print time_stamp(), 'Creating', sufix, 'files (start)'
     for i in range(0, len(lists)):
         if len(lists[i]) > 1:
-            new_file = open(ycsb_results_location + database + '_' +
-                            prefix + '_' + file_name_list[i] + '.' +
-                            sufix, 'w')
+            new_file = open(ycsb_results_location + file_name_list[i] +
+                            '.' + sufix, 'w')
             for row in lists[i]:
-                new_file.write(';'.join(row) + '\n')
+                if i == 0:  # uknow list
+                    new_file.write(''.join(row) + '\n')
+                else:  # another lists
+                    new_file.write(';'.join(row) + '\n')
             new_file.close()
 
-    print 'Creating', prefix, sufix, 'files (end)'
+    print time_stamp(), 'Creating', sufix, 'files (start)'
 
 
 def main(arg):
@@ -614,8 +622,6 @@ def main(arg):
         print os.getcwd()
         execute_test = False
 
-    make_csv = False
-
     if execute_test:
         cfg = load_config()
         if cfg['mode'] == 'remote':
@@ -623,11 +629,10 @@ def main(arg):
             global server_os_user
             server_os_user = raw_input('remote O.S. user: ')
 
-
         exectute_tests()
+
     if make_csv:
-        for file_type in ['run', 'load']:
-            read_result_files(file_type)
+        read_result_files()
 
 
 if __name__ == "__main__":
