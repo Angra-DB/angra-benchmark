@@ -245,13 +245,12 @@ def remove_angra_files(log_file):
     global cfg
 
     print time_stamp(), 'Clean Angra-DB (start)'
+    proc = start_process(log_file)
     log_f = open(log_file, 'a')
-    out = check_output(['rm', '-rf', cfg["angra_core_location"] +
-                        'ycsb' + 'Docs.adb'], stderr=subprocess.STDOUT)
-    log_f.write(out + '\n')
-    out = check_output(['rm', '-rf', cfg["angra_core_location"] +
-                        'ycsb' + 'Index.adb'], stderr=subprocess.STDOUT)
-    log_f.write(out + '\n')
+    proc.stdin.write('rm -rf ' + cfg["angra_core_location"] +
+                     'ycsb' + 'Docs.adb' + '\n')
+    proc.stdin.write('rm -rf ' + cfg["angra_core_location"] +
+                     'ycsb' + 'Index.adb' + '\n')
     log_f.close()
     print time_stamp(), 'Clean Angra-DB (end)'
 
