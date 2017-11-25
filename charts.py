@@ -84,7 +84,6 @@ def line_charts(file_in, file_out, titles, x_label, y_label,
     executions = ret[0]
     databases = ret[1]
     threads = ret[2]
-    stages = ret[4]
     data = ret[6]
 
     i = 0
@@ -118,11 +117,11 @@ def line_charts(file_in, file_out, titles, x_label, y_label,
                     y_partials.append(d[data_collum_number])
                     if float(d[data_collum_number]) > ylim_max:
                         ylim_max = float(d[data_collum_number])
-            if not len(y_partials):
-                media = 0
-            else:
+            if y_partials:
                 media = sum([float(y1) for y1 in y_partials]) \
                     / len(y_partials)
+            else:
+                media = 0
             y.append(media)
             y_partials = []
         if [y2 for y2 in y if y2 != 0]:
@@ -145,17 +144,15 @@ def line_charts(file_in, file_out, titles, x_label, y_label,
                   bbox_to_anchor=(1.15,  # horizontal
                                   0.02),  # vertical
                   ncol=1, numpoints=1)
-        pl.xlim(0, max([float(x) for x in threads]) + 1)
-        # pl.ylim(-0.1 * ylim_max, 1.1 * ylim_max)
-        pl.xticks(tuple([float(x) for x in threads]))
+        pl.xlim(0, max([float(x1) for x1 in threads]) + 1)
+        pl.xticks(tuple([float(x1) for x1 in threads]))
         pl.tick_params(axis='both', which='both', bottom='off', top='off',
                        labelbottom='on', left='off', right='off',
                        labelleft='on')
         pl.gca().spines['top'].set_visible(False)
         pl.gca().spines['right'].set_visible(False)
         pl.grid()
-        # pl.tight_layout()
-    
+
         pdf = PdfPages(file_out)
         pl.savefig(pdf, format='pdf', bbox_inches='tight')
         pdf.close()
@@ -165,32 +162,26 @@ def line_charts(file_in, file_out, titles, x_label, y_label,
 
 def histogram_charts(file_in, file_out, titles, x_label, y_label,
                      stage,
-                     th, operation,
+                     th, operation, hist_type='nobars',
                      data_collum_number=6, data_collum_multiplier=7):
 
     global cfg
     databases = []
     executions = []
-    threads = []
-    workloads = []
-    stages = []
 
     colors = ['b', 'g', 'r', 'c', 'm', 'y', 'k']
-    markers = ['o', 's', 'D', 'x', '^']
 
     ret = parameters_lists(file_in, operation is not None)
     executions = ret[0]
     databases = ret[1]
-    threads = ret[2]
-    stages = ret[4]
     data = ret[6]
 
     i = 0
+    ploted_dbs = []
     chart_data = []
     plots = []
+    bplot_data = []
     inserted_plots = {}
-    ylim_max = 0
-    chart_data_partials = []
     data_float = [float(m1[data_collum_number]) for m1 in data[1:]]
     min_bin = np.percentile(data_float,
                             5)
@@ -200,28 +191,64 @@ def histogram_charts(file_in, file_out, titles, x_label, y_label,
     bin_size = max_bin / 10
     bins = np.arange(min_bin, max_bin, bin_size)
     for db in databases:
-        print db, '-op: ', operation, 'th:', th, 'stage:', stage
-        print 'len data: ', len(data)
         base_list = [x1 for x1 in data
                      if x1[1] == db
                      and x1[2] == th
                      and x1[4] == stage
                      and x1[5] == operation]
-        print 'len base list: ', len(base_list)
+
         for d in base_list:
             for j in range(0, int(float(d[data_collum_multiplier]))):
                 chart_data.append(float(d[data_collum_number]))
 
-        print 'chart data:', len(chart_data)
         if chart_data:
-            inserted_plots[str(i)] = pl.hist(chart_data, bins=bins, alpha=0.3,
-                                             color=colors[i],
-                                             label=db_name(db))
+            if hist_type == 'bars':
+                inserted_plots[str(i)] = pl.hist(chart_data,
+                                                 bins=bins,
+                                                 alpha=0.3,
+                                                 color=colors[i],
+                                                 label=db_name(db))
+            elif hist_type == 'nobars':
+                hist = np.histogram(chart_data, bins=bins)
+                inserted_plots[str(i)] = pl.errorbar(hist[1][:-1] + bin_size/2,
+                                                     hist[0],
+                                                     alpha=0.3,
+                                                     xerr=bin_size/2,
+                                                     capsize=0,
+                                                     fmt=None,
+                                                     linewidth=8,
+                                                     color=colors[i],
+                                                     label=db_name(db))
+            elif hist_type == 'boxplot' or hist_type == 'violin':
+                inserted_plots[str(i)] = '0'
+
+                bplot_data.append(chart_data)
+
+                # inserted_plots[str(i)]['boxes'].set_facecolor(colors[i])
+                ploted_dbs.append(db)
 
             plots.append(inserted_plots[str(i)])
         i = i + 1
         chart_data = []
+
     if plots:
+        if hist_type == 'boxplot':
+            bplot = pl.boxplot(bplot_data,
+                               notch=False,
+                               vert=True,
+                               patch_artist=True)
+            param_zip = 'boxes'
+        elif hist_type == 'violin':
+            bplot = pl.violinplot(bplot_data,
+                                  showmeans=False,
+                                  showmedians=True,
+                                  showextrema=False)
+            param_zip = 'bodies'
+        if hist_type == 'boxplot' or hist_type == 'violin':
+            col = ['red', 'blue', 'green', 'yellow']
+            for patch, color in zip(bplot[param_zip], col[0:len(plots)-1]):
+                patch.set_facecolor(color)
+
         if len(executions) > 1:
             pl.title(titles[1])
         else:
@@ -232,21 +259,18 @@ def histogram_charts(file_in, file_out, titles, x_label, y_label,
                   bbox_to_anchor=(1.15,  # horizontal
                                   0.02),  # vertical
                   ncol=1, numpoints=1)
-    # pl.xlim(0, max([float(x) for x in threads]) + 1)
-    # pl.ylim(0, 20)
-    # pl.xticks(tuple([float(x) for x in threads]))
-    # pl.tick_params(axis='both', which='both', bottom='off', top='off',
-    #                labelbottom='on', left='off', right='off',
-    #                labelleft='on')
+        if hist_type == 'boxplot' or hist_type == 'violin':
+            pl.xticks([y+1 for y in range(len(ploted_dbs))], ploted_dbs)
+
+        else:
+            pl.xticks(bins + bin_size)
         pl.gca().spines['top'].set_visible(False)
         pl.gca().spines['right'].set_visible(False)
         pl.grid()
-    # pl.tight_layout()
-
         pdf = PdfPages(file_out)
         pl.savefig(pdf, format='pdf', bbox_inches='tight')
         pdf.close()
-    # saves the current figure into a pdf page
+
     pl.close()
 
 
@@ -284,7 +308,7 @@ def main(arg):
     for op in op_list:
         for st in stages:
             line_charts('totals.csv',
-                        op + '-num_op-' + st + '.pdf',
+                        'line-' + op + '-num_op-' + st + '.pdf',
                         [
                             u'Número de operações aferidas',
                             u'Número médio de operações aferidas'
@@ -297,14 +321,11 @@ def main(arg):
 
     _, _, threads, _, stages, op_list, _ = parameters_lists('operations.csv', True)
     print 'Histogram - operations'
-    print op_list
-    print stages
-    print threads
     for op in op_list:
         for th in threads:
             for st in stages:
                 histogram_charts('operations.csv',
-                                 op + '-th-' + th + '-' + st + '.pdf',
+                                 'hist-' + op + '-th-' + th + '-' + st + '.pdf',
                                  [
                                      op,
                                      op
@@ -314,6 +335,17 @@ def main(arg):
                                  st,
                                  th,
                                  op)
+                histogram_charts('operations.csv',
+                                 'bplot-' + op + '-th-' + th + '-' + st + '.pdf',
+                                 [
+                                     op,
+                                     op
+                                 ],
+                                 'qtd.',
+                                 'Latency (us)',
+                                 st,
+                                 th,
+                                 op, 'violin')
 
 
 if __name__ == "__main__":

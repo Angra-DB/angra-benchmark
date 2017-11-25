@@ -626,7 +626,8 @@ def main(arg):
         if cfg['mode'] == 'remote':
             print 'Remote mode, please type remote O.S. admin user\n'
             global server_os_user
-            server_os_user = raw_input('remote O.S. user: ')
+            server_os_user = cfg['server_os_user']
+            # raw_input('remote O.S. user: ')
 
         exectute_tests()
 
