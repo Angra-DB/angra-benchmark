@@ -104,16 +104,24 @@ def ycsb_command(com_type, ex, db, th, wl):
     if cfg["recordcount"] == 0:
         rcd_com = ''
     else:
-        rcd_com = '-p recordcount=' + str(cfg["recordcount"]) + ' '
+        rcd_com = ' -p recordcount=' + str(cfg["recordcount"]) + ' '
 
     if cfg["operationcount"] == 0:
         opr_com = ''
     else:
-        opr_com = '-p operationcount=' + str(cfg["operationcount"]) + ' '
+        opr_com = ' -p operationcount=' + str(cfg["operationcount"]) + ' '
+
+    if com_type == 'load':
+        retry_com = ' -p core_workload_insertion_retry_limit=' + \
+            str(cfg["retry_limit_times"]) + \
+            ' -p core_workload_insertion_retry_interval=' + \
+            str(cfg["retry_interval_seconds"]) + ' '
+    else:
+        retry_com = ''
 
     command = cfg["ycsb_location"] + 'bin/ycsb ' + com_type + \
         ' ' + db_com + ' -threads ' + str(th) + ' ' + \
-        targ_com + rcd_com + opr_com + '-s -P workloads/' + \
+        targ_com + rcd_com + opr_com + retry_com + '-s -P workloads/' + \
         wl + '> ' + log_types('result', ex, com_type, db, th, wl)
 
     return command
@@ -234,7 +242,7 @@ def start_angra(log_file):
     proc.stdin.write('cd ' + cfg["angra_core_location"] + '\n')
     sleep(0.1)
     proc.stdin.write(cfg["rebar3_command"] + ' shell' + '\n')
-    sleep(3)
+    sleep(5)
     proc.stdin.write('adb_app:kickoff(all).' + '\n')
     log_f.close()
     print time_stamp(), 'start Angra-DB (end)'
@@ -247,10 +255,14 @@ def remove_angra_files(log_file):
     print time_stamp(), 'Clean Angra-DB (start)'
     proc = start_process(log_file)
     log_f = open(log_file, 'a')
-    proc.stdin.write('rm -rf ' + cfg["angra_core_location"] +
-                     'ycsb' + 'Docs.adb' + '\n')
-    proc.stdin.write('rm -rf ' + cfg["angra_core_location"] +
-                     'ycsb' + 'Index.adb' + '\n')
+    if cfg["angra_store_type"] == "adbtree":
+        proc.stdin.write('rm -rf ' + cfg["angra_core_location"] +
+                         'ycsb' + 'Docs.adb' + '\n')
+        proc.stdin.write('rm -rf ' + cfg["angra_core_location"] +
+                         'ycsb' + 'Index.adb' + '\n')
+    elif cfg["angra_store_type"] == "hanoidb":
+        proc.stdin.write('rm -rf ' + cfg["angra_core_location"] +
+                         'ycsb' + '\n')
     log_f.close()
     print time_stamp(), 'Clean Angra-DB (end)'
 
