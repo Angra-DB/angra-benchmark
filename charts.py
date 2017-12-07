@@ -261,9 +261,20 @@ def histogram_charts(file_in, file_out, titles, x_label, y_label,
                   ncol=1, numpoints=1)
         if hist_type == 'boxplot' or hist_type == 'violin':
             pl.xticks([y+1 for y in range(len(ploted_dbs))], ploted_dbs)
+            # np.arange(min(x), max(x)+1, 1.0)
+            minimus = 1000000000
+            maximus = 0
+            for cd in bplot_data:
+                if min(cd) < minimus:
+                    minimus = min(cd)
+                if np.percentile(cd, 99) > maximus:
+                    maximus = np.percentile(cd, 99)
+            pl.ylim(ymax=maximus, ymin=minimus)
 
+            # pl.yticks(np.arange(minimus, maximus, 10000))
         else:
             pl.xticks(bins + bin_size)
+        # gca() = get current axes
         pl.gca().spines['top'].set_visible(False)
         pl.gca().spines['right'].set_visible(False)
         pl.grid()
@@ -341,7 +352,7 @@ def main(arg):
                                      op,
                                      op
                                  ],
-                                 'qtd.',
+                                 'SGBD',
                                  'Latency (us)',
                                  st,
                                  th,
