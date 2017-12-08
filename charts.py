@@ -39,6 +39,13 @@ def load_config():
         data = json.load(data_file)
     return data
 
+def getstuff(filename, op, th):
+    with open(cfg["ycsb_results_location"] + filename, "rb") as csvfile:
+        datareader = csv.reader(csvfile, delimiter=';')
+        for row in datareader:
+            if row[5] == op and row[2] == th:
+                yield row
+
 
 def parameters_lists(file_in, has_operations=False):
     global cfg
@@ -160,7 +167,8 @@ def line_charts(file_in, file_out, titles, x_label, y_label,
     pl.close()
 
 
-def histogram_charts(file_in, file_out, titles, x_label, y_label,
+
+def histogram_charts(ret,file_in, file_out, titles, x_label, y_label,
                      stage,
                      th, operation, hist_type='nobars',
                      data_collum_number=6, data_collum_multiplier=7):
@@ -171,10 +179,17 @@ def histogram_charts(file_in, file_out, titles, x_label, y_label,
 
     colors = ['b', 'g', 'r', 'c', 'm', 'y', 'k']
 
-    ret = parameters_lists(file_in, operation is not None)
+    # ret = parameters_lists(file_in, operation is not None)
     executions = ret[0]
     databases = ret[1]
-    data = ret[6]
+    data = []
+    count=0
+    for row in getstuff(file_in, titles[0], th):
+        count = count + 1
+        print count
+        data.append(row)
+
+    # data =    # ret[6]
 
     i = 0
     ploted_dbs = []
@@ -290,63 +305,68 @@ def main(arg):
     global cfg
     cfg = load_config()
 
-    _, _, _, _, stages, _, _ = parameters_lists('overall.csv')
-    print 'Line - overall'
-    for st in stages:
-        line_charts('overall.csv',
-                    'throughput-' + st + '.pdf',
-                    [
-                        u'Throughput aferido',
-                        u'Throughput(ops/sec) médio aferido'
-                    ],
-                    'Threads',
-                    'Throughput(ops/sec)',
-                    6,
-                    st)
-        line_charts('overall.csv',
-                    'runtime-' + st + '.pdf',
-                    [
-                        u'Runtime aferido',
-                        u'Runtime médio aferido'
-                    ],
-                    'Threads',
-                    'Runtime (ms)',
-                    5,
-                    st)
+    # _, _, _, _, stages, _, _ = parameters_lists('overall.csv')
+    # print 'Line - overall'
+    # for st in stages:
+    #     line_charts('overall.csv',
+    #                 'throughput-' + st + '.pdf',
+    #                 [
+    #                     u'Throughput aferido',
+    #                     u'Throughput(ops/sec) médio aferido'
+    #                 ],
+    #                 'Threads',
+    #                 'Throughput(ops/sec)',
+    #                 6,
+    #                 st)
+    #     line_charts('overall.csv',
+    #                 'runtime-' + st + '.pdf',
+    #                 [
+    #                     u'Runtime aferido',
+    #                     u'Runtime médio aferido'
+    #                 ],
+    #                 'Threads',
+    #                 'Runtime (ms)',
+    #                 5,
+    #                 st)
+    #
+    # _, _, _, _, stages, op_list, _ = parameters_lists('totals.csv', True)
+    # print 'Line - totals'
+    # for op in op_list:
+    #     for st in stages:
+    #         line_charts('totals.csv',
+    #                     'line-' + op + '-num_op-' + st + '.pdf',
+    #                     [
+    #                         u'Número de operações aferidas',
+    #                         u'Número médio de operações aferidas'
+    #                     ],
+    #                     'Threads',
+    #                     'Quantidade',
+    #                     6,
+    #                     st,
+    #                     op)
 
-    _, _, _, _, stages, op_list, _ = parameters_lists('totals.csv', True)
-    print 'Line - totals'
-    for op in op_list:
-        for st in stages:
-            line_charts('totals.csv',
-                        'line-' + op + '-num_op-' + st + '.pdf',
-                        [
-                            u'Número de operações aferidas',
-                            u'Número médio de operações aferidas'
-                        ],
-                        'Threads',
-                        'Quantidade',
-                        6,
-                        st,
-                        op)
-
-    _, _, threads, _, stages, op_list, _ = parameters_lists('operations.csv', True)
+    #_, _, threads, _, stages, op_list, _ = parameters_lists('operations.csv', True)
+    ret = parameters_lists('totals.csv', True)
+    # _, _, threads, _, stages, op_list, _ = parameters_lists('totals.csv', True)
+    op_list = ret[5]
+    threads = ret[2]
+    stages = ret[4]
     print 'Histogram - operations'
     for op in op_list:
         for th in threads:
             for st in stages:
-                histogram_charts('operations.csv',
-                                 'hist-' + op + '-th-' + th + '-' + st + '.pdf',
-                                 [
-                                     op,
-                                     op
-                                 ],
-                                 'Latency (us)',
-                                 'qtd.',
-                                 st,
-                                 th,
-                                 op)
-                histogram_charts('operations.csv',
+                # histogram_charts('operations.csv',
+                #                  'hist-' + op + '-th-' + th + '-' + st + '.pdf',
+                #                  [
+                #                      op,
+                #                      op
+                #                  ],
+                #                  'Latency (us)',
+                #                  'qtd.',
+                #                  st,
+                #                  th,
+                #                  op)
+                histogram_charts(ret, 'operations.csv',
                                  'bplot-' + op + '-th-' + th + '-' + st + '.pdf',
                                  [
                                      op,

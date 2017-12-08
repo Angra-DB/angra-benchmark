@@ -374,6 +374,29 @@ def read_result_files():
     operations_list = []
     totals_list = []
 
+    create_first_line(operations_list,
+                      totals_list,
+                      overall_list,
+                      gc_totals_list,
+                      unknow_list)
+
+    create_cvs_files('csv',
+                     [
+                         unknow_list, overall_list, gc_totals_list,
+                         operations_list, totals_list
+                     ],
+                     [
+                         'unknow', 'overall', 'GC_totals',
+                         'operations', 'totals'
+                     ],
+                     cfg["ycsb_results_location"])
+
+    overall_list = []
+    gc_totals_list = []
+    unknow_list = []
+    operations_list = []
+    totals_list = []
+
     print time_stamp(), 'reading files (start)'
     for file_type in ['load', 'run']:
         for db in cfg["dbs"]:
@@ -392,21 +415,85 @@ def read_result_files():
                                                       overall_list,
                                                       gc_totals_list,
                                                       unknow_list)
-
+                            csvfile.close()
+                            unknow_list = clean_unkow(unknow_list)
+                            print time_stamp(), 'reading ', file_name
+                            export_cvs_files('csv',
+                                             [
+                                                 unknow_list, overall_list,
+                                                 gc_totals_list,
+                                                 operations_list, totals_list
+                                             ],
+                                             [
+                                                 'unknow', 'overall',
+                                                 'GC_totals',
+                                                 'operations', 'totals'
+                                             ],
+                                             cfg["ycsb_results_location"])
+                            overall_list = []
+                            gc_totals_list = []
+                            unknow_list = []
+                            operations_list = []
+                            totals_list = []
     print time_stamp(), 'reading files (end)'
 
-    unknow_list = clean_unkow(unknow_list)
+    # unknow_list = clean_unkow(unknow_list)
 
-    export_cvs_files('csv',
-                     [
-                         unknow_list, overall_list, gc_totals_list,
-                         operations_list, totals_list
-                     ],
-                     [
-                         'unknow', 'overall', 'GC_totals',
-                         'operations', 'totals'
-                     ],
-                     cfg["ycsb_results_location"])
+    # export_cvs_files('csv',
+    #                  [
+    #                      unknow_list, overall_list, gc_totals_list,
+    #                      operations_list, totals_list
+    #                  ],
+    #                  [
+    #                      'unknow', 'overall', 'GC_totals',
+    #                      'operations', 'totals'
+    #                  ],
+    #                  cfg["ycsb_results_location"])
+
+
+def create_first_line(lst_ops, lst_totals,
+                      lst_overall, lst_t_gc, lst_unknow):
+
+    lst_totals.append(
+        ['Execution', 'Database', 'Threads',
+         'Workload', 'Stage', 'Operation',
+         '# Operations', 'AverageLatency(us)',
+         'MinLatency(us)', 'MaxLatency(us)',
+         '95thPercentileLatency(us)', '99thPercentileLatency(us)',
+         'Return=OK', 'Return=NOT_FOUND',
+         'Return=UNEXPECTED_STATE', 'Return=ERROR']
+    )
+
+    lst_ops.append(['Execution',
+                    'Database',
+                    'Threads',
+                    'Workload',
+                    'Stage',
+                    'Operation',
+                    'Latency (us)', 'Frequence'])
+
+    lst_t_gc.append(['Execution', 'Database', 'Threads',
+                     'Workload', 'Stage',
+                     'GCS Copy [Count]',
+                     'GCS G1 Young Generation [Count]',
+                     'GCS G1 Old Generation [Count]',
+                     'GC Time Copy [Time(ms)]',
+                     'GC Time % Copy [Time(%)]',
+                     'GC Time G1 Young Generation [Time(ms)]',
+                     'GC Time % G1 Young Generation [Time(%)]',
+                     'GC Time G1 Old Generation [Time(ms)]',
+                     'GC Time % G1 Old Generation [Time(%)]',
+                     'GCS MarkSweepCompact [Count]',
+                     'GC Time MarkSweepCompact [Time(ms)]',
+                     'GC Time % MarkSweepCompact [Time(%)]',
+                     'GCs [Count]',
+                     'GC Time [Time(ms)]',
+                     'GC Time % [Time(%)]'])
+
+    lst_overall.append(['Execution', 'Database', 'Threads',
+                        'Workload', 'Stage',
+                        'RunTime(ms)',
+                        'Throughput(ops/sec)'])
 
 
 def read_line_from_result(db, ex, th, wl, stage, row, lst_ops, lst_totals,
@@ -427,16 +514,16 @@ def read_line_from_result(db, ex, th, wl, stage, row, lst_ops, lst_totals,
                                    'Return=NOT_FOUND',
                                    'Return=UNEXPECTED_STATE']:
 
-            if not lst_totals:
-                lst_totals.append(
-                    ['Execution', 'Database', 'Threads',
-                     'Workload', 'Stage', 'Operation',
-                     '# Operations', 'AverageLatency(us)',
-                     'MinLatency(us)', 'MaxLatency(us)',
-                     '95thPercentileLatency(us)', '99thPercentileLatency(us)',
-                     'Return=OK', 'Return=NOT_FOUND',
-                     'Return=UNEXPECTED_STATE']
-                )
+            # if not lst_totals:
+            #     lst_totals.append(
+            #         ['Execution', 'Database', 'Threads',
+            #          'Workload', 'Stage', 'Operation',
+            #          '# Operations', 'AverageLatency(us)',
+            #          'MinLatency(us)', 'MaxLatency(us)',
+            #          '95thPercentileLatency(us)', '99thPercentileLatency(us)',
+            #          'Return=OK', 'Return=NOT_FOUND',
+            #          'Return=UNEXPECTED_STATE']
+            #     )
 
             if not [item for item in lst_totals if
                     item[0] == ex
@@ -471,16 +558,18 @@ def read_line_from_result(db, ex, th, wl, stage, row, lst_ops, lst_totals,
                 lst_totals[-1][13] = str(row[2].strip())
             elif str(row[1].strip()) == 'Return=UNEXPECTED_STATE':
                 lst_totals[-1][14] = str(row[2].strip())
+            elif str(row[1].strip()) == 'Return=ERROR':
+                lst_totals[-1][15] = str(row[2].strip())
 
         elif (is_number(row[1].strip()) and is_number(row[2].strip())):
-            if not lst_ops:
-                lst_ops.append(['Execution',
-                                'Database',
-                                'Threads',
-                                'Workload',
-                                'Stage',
-                                'Operation',
-                                'Latency (us)', 'Frequence'])
+            # if not lst_ops:
+            #     lst_ops.append(['Execution',
+            #                     'Database',
+            #                     'Threads',
+            #                     'Workload',
+            #                     'Stage',
+            #                     'Operation',
+            #                     'Latency (us)', 'Frequence'])
 
             lst_ops.append([ex, db, th, wl, stage,
                             row[0].replace('[', '').replace(']', ''),
@@ -493,24 +582,24 @@ def read_line_from_result(db, ex, th, wl, stage, row, lst_ops, lst_totals,
 
     elif '[TOTAL_GC' in row[0]:
 
-        if not lst_t_gc:
-            lst_t_gc.append(['Execution', 'Database', 'Threads',
-                             'Workload', 'Stage',
-                             'GCS Copy [Count]',
-                             'GCS G1 Young Generation [Count]',
-                             'GCS G1 Old Generation [Count]',
-                             'GC Time Copy [Time(ms)]',
-                             'GC Time % Copy [Time(%)]',
-                             'GC Time G1 Young Generation [Time(ms)]',
-                             'GC Time % G1 Young Generation [Time(%)]',
-                             'GC Time G1 Old Generation [Time(ms)]',
-                             'GC Time % G1 Old Generation [Time(%)]',
-                             'GCS MarkSweepCompact [Count]',
-                             'GC Time MarkSweepCompact [Time(ms)]',
-                             'GC Time % MarkSweepCompact [Time(%)]',
-                             'GCs [Count]',
-                             'GC Time [Time(ms)]',
-                             'GC Time % [Time(%)]'])
+        # if not lst_t_gc:
+        #     lst_t_gc.append(['Execution', 'Database', 'Threads',
+        #                      'Workload', 'Stage',
+        #                      'GCS Copy [Count]',
+        #                      'GCS G1 Young Generation [Count]',
+        #                      'GCS G1 Old Generation [Count]',
+        #                      'GC Time Copy [Time(ms)]',
+        #                      'GC Time % Copy [Time(%)]',
+        #                      'GC Time G1 Young Generation [Time(ms)]',
+        #                      'GC Time % G1 Young Generation [Time(%)]',
+        #                      'GC Time G1 Old Generation [Time(ms)]',
+        #                      'GC Time % G1 Old Generation [Time(%)]',
+        #                      'GCS MarkSweepCompact [Count]',
+        #                      'GC Time MarkSweepCompact [Time(ms)]',
+        #                      'GC Time % MarkSweepCompact [Time(%)]',
+        #                      'GCs [Count]',
+        #                      'GC Time [Time(ms)]',
+        #                      'GC Time % [Time(%)]'])
 
         if not [item for item in lst_t_gc
                 if item[0] == ex
@@ -559,11 +648,11 @@ def read_line_from_result(db, ex, th, wl, stage, row, lst_ops, lst_totals,
 
     elif row[0] == '[OVERALL]':
 
-        if not lst_overall:
-            lst_overall.append(['Execution', 'Database', 'Threads',
-                                'Workload', 'Stage',
-                                'RunTime(ms)',
-                                'Throughput(ops/sec)'])
+        # if not lst_overall:
+        #     lst_overall.append(['Execution', 'Database', 'Threads',
+        #                         'Workload', 'Stage',
+        #                         'RunTime(ms)',
+        #                         'Throughput(ops/sec)'])
 
         if not [item for item in lst_overall
                 if item[0] == ex
@@ -580,6 +669,8 @@ def read_line_from_result(db, ex, th, wl, stage, row, lst_ops, lst_totals,
             lst_overall[-1][6] = str(row[2].strip())
         else:
             lst_unknow.append(''.join(row))
+
+
     else:
         lst_unknow.append(''.join(row))
 
@@ -597,11 +688,10 @@ def clean_unkow(lst_unknow):
     return lst_unknow
 
 
-def export_cvs_files(sufix, lists,
+def create_cvs_files(sufix, lists,
                      file_name_list, ycsb_results_location):
-    print time_stamp(), 'Creating', sufix, 'files (start)'
+    # print time_stamp(), 'Creating', sufix, 'files (start)'
     for i in range(0, len(lists)):
-        if len(lists[i]) > 1:
             new_file = open(ycsb_results_location + file_name_list[i] +
                             '.' + sufix, 'w')
             for row in lists[i]:
@@ -611,7 +701,22 @@ def export_cvs_files(sufix, lists,
                     new_file.write(';'.join(row) + '\n')
             new_file.close()
 
-    print time_stamp(), 'Creating', sufix, 'files (start)'
+
+def export_cvs_files(sufix, lists,
+                     file_name_list, ycsb_results_location):
+    # print time_stamp(), 'Creating', sufix, 'files (start)'
+    for i in range(0, len(lists)):
+        if len(lists[i]) >= 1:
+            new_file = open(ycsb_results_location + file_name_list[i] +
+                            '.' + sufix, 'a')
+            for row in lists[i]:
+                if i == 0:  # uknow list
+                    new_file.write(''.join(row) + '\n')
+                else:  # another lists
+                    new_file.write(';'.join(row) + '\n')
+            new_file.close()
+
+    # print time_stamp(), 'Creating', sufix, 'files (start)'
 
 
 def main(arg):
