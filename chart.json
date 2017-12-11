@@ -1,0 +1,28 @@
+{
+  "not_use_operations":[
+    "INSERT",
+    "INSERT-FAILED"
+  ],
+  "operations": [
+    "READ",
+    "READ-FAILED",
+    "UPDATE",
+    "UPDATE-FAILED"
+  ],
+  "chart_types": [
+    "line-throughput",
+    "line-runtime",
+    "line-operations",
+    "histogram",
+    "boxplot",
+    "violin"
+  ],
+  "colors": [
+    "b", "g", "r", "c", "m", "y", "k"
+  ],
+  "markers": [
+    "o", "s", "D", "x", "^"
+  ],
+  "charts_location": "/media/sf_odrive/dev_dropbox/github/"
+
+}
