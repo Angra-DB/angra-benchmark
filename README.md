@@ -1,8 +1,7 @@
 # angra-benchmark
-scripts for Angra-DB benchmark using python
+scripts for Angra-DB benchmark using python. This script can benchmark CouchDB, MongoDB and MySQL using [YCSB](https://github.com/Angra-DB/YCSB-Angra-DB).
 
 ## See `JSON` files and configure to your environment!
-
 
 ### How this works?
 
@@ -26,3 +25,11 @@ scripts for Angra-DB benchmark using python
    ~~~
 
  5. Analise your results.
+
+ ***
+
+See:
+* https://github.com/angra-DB
+* https://github.com/Angra-DB/YCSB-Angra-DB
+* https://github.com/brianfrankcooper/YCSB/wiki
+* https://github.com/arnaudsjs/YCSB-couchdb-binding
