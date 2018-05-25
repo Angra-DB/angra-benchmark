@@ -5,7 +5,7 @@ import json
 import sys
 
 
-cfg = None
+CFG = None
 server_os_user = ''
 
 
@@ -40,10 +40,10 @@ def time_stamp():
 
 
 def log_types(type, ex, com_type, db, th, wl):
-    global cfg
+    global CFG
 
     if type == 'result':
-        to_return = cfg["ycsb_results_location"] + str(ex) + '-' + \
+        to_return = CFG["ycsb_results_location"] + str(ex) + '-' + \
             com_type + '-' + db + '-threads-' + str(th) + '-' +\
             wl + '.txt'
     elif type == 'screen':
@@ -55,7 +55,7 @@ def log_types(type, ex, com_type, db, th, wl):
 
 
 def read_result_files():
-    global cfg
+    global CFG
     overall_list = []
     gc_totals_list = []
     unknow_list = []
@@ -68,20 +68,20 @@ def read_result_files():
         overall_list,
         gc_totals_list,
         unknow_list
-    )
+        )
 
     create_cvs_files(
         'csv',
         [
             unknow_list, overall_list, gc_totals_list,
             operations_list, totals_list
-        ],
+            ],
         [
             'unknow', 'overall', 'GC_totals',
             'operations', 'totals'
-        ],
-        cfg["ycsb_results_location"]
-    )
+            ],
+        CFG["ycsb_results_location"]
+        )
 
     overall_list = []
     gc_totals_list = []
@@ -90,11 +90,11 @@ def read_result_files():
     totals_list = []
 
     print time_stamp(), 'reading files (start)'
-    for file_type in cfg["stages"]:
-        for db in cfg["dbs"]:
-            for th in cfg["threads"]:
-                for ex in range(1, cfg["executions"] + 1):
-                    for wl in cfg["workloads"]:
+    for file_type in CFG["stages"]:
+        for db in CFG["dbs"]:
+            for th in CFG["threads"]:
+                for ex in range(1, CFG["executions"] + 1):
+                    for wl in CFG["workloads"]:
                         file_name = log_types('result', ex, file_type, db,
                                               th, wl)
                         with open(file_name, 'r') as csvfile:
@@ -108,7 +108,7 @@ def read_result_files():
                                     overall_list,
                                     gc_totals_list,
                                     unknow_list
-                                )
+                                    )
                             csvfile.close()
                             unknow_list = clean_unkow(unknow_list)
                             print time_stamp(), 'reading ', file_name
@@ -118,14 +118,14 @@ def read_result_files():
                                     unknow_list, overall_list,
                                     gc_totals_list,
                                     operations_list, totals_list
-                                ],
+                                    ],
                                 [
                                     'unknow', 'overall',
                                     'GC_totals',
                                     'operations', 'totals'
-                                ],
-                                cfg["ycsb_results_location"]
-                            )
+                                    ],
+                                CFG["ycsb_results_location"]
+                                )
                             overall_list = []
                             gc_totals_list = []
                             unknow_list = []
@@ -144,7 +144,7 @@ def read_result_files():
     #                      'unknow', 'overall', 'GC_totals',
     #                      'operations', 'totals'
     #                  ],
-    #                  cfg["ycsb_results_location"])
+    #                  CFG["ycsb_results_location"])
 
 
 def create_first_line(lst_ops, lst_totals,
@@ -158,7 +158,7 @@ def create_first_line(lst_ops, lst_totals,
          '95thPercentileLatency(us)', '99thPercentileLatency(us)',
          'Return=OK', 'Return=NOT_FOUND',
          'Return=UNEXPECTED_STATE', 'Return=ERROR']
-    )
+         )
 
     lst_ops.append(['Execution',
                     'Database',
@@ -168,32 +168,30 @@ def create_first_line(lst_ops, lst_totals,
                     'Operation',
                     'Latency (us)', 'Frequence'])
 
-    lst_t_gc.append(
-        [
-            'Execution', 'Database', 'Threads', 'Workload', 'Stage',
-            'GCS Copy [Count]',
-            'GCS G1 Young Generation [Count]',
-            'GCS G1 Old Generation [Count]',
-            'GC Time Copy [Time(ms)]',
-            'GC Time % Copy [Time(%)]',
-            'GC Time G1 Young Generation [Time(ms)]',
-            'GC Time % G1 Young Generation [Time(%)]',
-            'GC Time G1 Old Generation [Time(ms)]',
-            'GC Time % G1 Old Generation [Time(%)]',
-            'GCS MarkSweepCompact [Count]',
-            'GC Time MarkSweepCompact [Time(ms)]',
-            'GC Time % MarkSweepCompact [Time(%)]',
-            'GCs [Count]',
-            'GC Time [Time(ms)]',
-            'GC Time % [Time(%)]',
-            'GCS PS MarkSweep [Count]',
-            'GC PS Time MarkSweep [Time(ms)]',
-            'GC Time % PS MarkSweep [Time(%)]',
-            'GCS PS Scavenge [Count]',
-            'GC Time PS Scavenge [Time(ms)]',
-            'GC Time % PS Scavenge [Time(%)]'
-        ]
-    )
+    lst_t_gc.append([
+        'Execution', 'Database', 'Threads', 'Workload', 'Stage',
+        'GCS Copy [Count]',
+        'GCS G1 Young Generation [Count]',
+        'GCS G1 Old Generation [Count]',
+        'GC Time Copy [Time(ms)]',
+        'GC Time % Copy [Time(%)]',
+        'GC Time G1 Young Generation [Time(ms)]',
+        'GC Time % G1 Young Generation [Time(%)]',
+        'GC Time G1 Old Generation [Time(ms)]',
+        'GC Time % G1 Old Generation [Time(%)]',
+        'GCS MarkSweepCompact [Count]',
+        'GC Time MarkSweepCompact [Time(ms)]',
+        'GC Time % MarkSweepCompact [Time(%)]',
+        'GCs [Count]',
+        'GC Time [Time(ms)]',
+        'GC Time % [Time(%)]',
+        'GCS PS MarkSweep [Count]',
+        'GC PS Time MarkSweep [Time(ms)]',
+        'GC Time % PS MarkSweep [Time(%)]',
+        'GCS PS Scavenge [Count]',
+        'GC Time PS Scavenge [Time(ms)]',
+        'GC Time % PS Scavenge [Time(%)]'
+        ])
 
     lst_overall.append(['Execution', 'Database', 'Threads',
                         'Workload', 'Stage',
@@ -209,18 +207,15 @@ def read_line_from_result(db, ex, th, wl, stage, row, lst_ops, lst_totals,
                   '[INSERT]', '[CLEANUP]', '[INSERT-FAILED]'):
         hadle_operation_lines(
             db, ex, th, wl, stage, row, lst_unknow, empty_col,
-            lst_totals, lst_ops
-        )
+            lst_totals, lst_ops)
     elif '[TOTAL_GC' in row[0]:
         handle_GC_lines(
             db, ex, th, wl, stage, row, lst_unknow, empty_col,
-            lst_t_gc,
-        )
+            lst_t_gc,)
     elif row[0] == '[OVERALL]':
         handle_overall_lines(
             db, ex, th, wl, stage, row, lst_unknow, empty_col,
-            lst_overall
-        )
+            lst_overall)
     else:
         lst_unknow.append(''.join(row))
 
@@ -245,14 +240,13 @@ def hadle_operation_lines(db, ex, th, wl, stage, row, lst_unknow, empty_col,
                 and item[3] == wl
                 and item[4] == stage
                 and item[5] == row[0].replace('[', '').replace(']', '')]:
-            lst_totals.append(
-                [ex, db, th, wl, stage,
-                 row[0].replace('[', '').replace(']', ''),
-                 empty_col, empty_col, empty_col,
-                 empty_col, empty_col, empty_col,
-                 empty_col, empty_col, empty_col,
-                 empty_col]
-            )
+            lst_totals.append([
+                ex, db, th, wl, stage,
+                row[0].replace('[', '').replace(']', ''),
+                empty_col, empty_col, empty_col,
+                empty_col, empty_col, empty_col,
+                empty_col, empty_col, empty_col,
+                empty_col])
 
         if str(row[1].strip()) == 'Operations':
             lst_totals[-1][6] = str(row[2].strip())
@@ -374,8 +368,7 @@ def clean_unkow(lst_unknow):
         'Using shards:',
         'Adding shard node URL:',
         'mongo client connection created with',
-        'ycsb_home:::'
-    ]
+        'ycsb_home:::']
     for k in know_unknow:
         lst_unknow = [x for x in lst_unknow if k not in x]
     return lst_unknow
@@ -385,14 +378,14 @@ def create_cvs_files(sufix, lists,
                      file_name_list, ycsb_results_location):
     # print time_stamp(), 'Creating', sufix, 'files (start)'
     for i in range(0, len(lists)):
-            new_file = open(ycsb_results_location + file_name_list[i] +
-                            '.' + sufix, 'w')
-            for row in lists[i]:
-                if i == 0:  # uknow list
-                    new_file.write(''.join(row) + '\n')
-                else:  # another lists
-                    new_file.write(';'.join(row) + '\n')
-            new_file.close()
+        new_file = open(ycsb_results_location + file_name_list[i]
+                        + '.' + sufix, 'w')
+        for row in lists[i]:
+            if i == 0:  # uknow list
+                new_file.write(''.join(row) + '\n')
+            else:  # another lists
+                new_file.write(';'.join(row) + '\n')
+        new_file.close()
 
 
 def export_cvs_files(sufix, lists,
@@ -413,14 +406,14 @@ def export_cvs_files(sufix, lists,
 
 
 def main(arg):
-    global cfg
-    cfg = load_config()
+    global CFG
+    CFG = load_config()
 
     if arg[0] == 'csv':
         make_csv = True
 
-    elif arg[0] == 'cfg':
-        for key, value in cfg.items():
+    elif arg[0] == 'CFG':
+        for key, value in CFG.items():
             print key, ':', value
         make_csv = False
 

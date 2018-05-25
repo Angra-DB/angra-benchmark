@@ -1,11 +1,11 @@
 {
   "workloads": ["workloada"],
-  "dbs": ["angra","couchdb","mysql","mongodb"],
+  "dbs": ["angra"],
   "stages":["load", "run"],
-  "executions": 200,
-  "threads": [1,2,5,10,50,100],
+  "executions": 2,
+  "threads": [1,2],
   "target": 0,
-  "recordcount": 50000,
-  "operationcount": 50000,
-  "ycsb_results_location": "/media/sf_odrive/dev_dropbox/github/log/"
+  "recordcount": 1000,
+  "operationcount": 1000,
+  "ycsb_results_location": "/home/dev/angra/"
 }

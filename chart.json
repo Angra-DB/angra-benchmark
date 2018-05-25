@@ -1,9 +1,9 @@
 {
-  "not_use_operations":[
+  "operations":[
     "INSERT",
     "INSERT-FAILED"
   ],
-  "operations": [
+  "not_use_operations": [
     "READ",
     "READ-FAILED",
     "UPDATE",
@@ -23,6 +23,6 @@
   "markers": [
     "o", "s", "D", "x", "^"
   ],
-  "charts_location": "/media/sf_odrive/dev_dropbox/github/"
+  "charts_location": "/home/dev/angra/"
 
 }
