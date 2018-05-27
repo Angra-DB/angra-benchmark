@@ -269,6 +269,12 @@ def remove_angra_files(log_file):
                          'ycsb' + 'Docs.adb' + '\n')
         proc.stdin.write('rm -rf ' + cfg["angra_core_location"] +
                          'ycsb' + 'Index.adb' + '\n')
+        proc.stdin.write('rm -rf ' + cfg["angra_core_location"] +
+                         'ycsb' + 'Index.adbi' + '\n')
+        proc.stdin.write('rm -rf ' + cfg["angra_core_location"] +
+                         'ycsb' + 'Versions.adb' + '\n')
+        proc.stdin.write('rm -rf ' + cfg["angra_core_location"] +
+                         'ycsb' + 'Deletions.adb' + '\n')
     elif cfg["angra_store_type"] == "hanoidb":
         proc.stdin.write('rm -rf ' + cfg["angra_core_location"] +
                          'ycsb' + '\n')
